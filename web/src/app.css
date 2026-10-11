@@ -2317,29 +2317,22 @@ code {
   overflow: visible;
   min-width: 0;
 }
-/* Names always show in full; a long one wraps rather than truncating. */
-.lrow-name {
-  white-space: normal;
-}
 .lrow-nm {
   min-width: 0;
-  overflow-wrap: anywhere;
-}
-/* In list rows the pill is icon-only (label in the tooltip) so names never truncate. */
-.lrow-name .tier-pill {
-  padding: 0.2rem;
-}
-.lrow-name .tier-pill-text {
-  position: absolute;
-  width: 1px;
-  height: 1px;
   overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-@media (min-width: 900px) and (max-width: 1200px) {
-  /* Tighter list column: drop the row's mini score bar (the brief shows the full one). */
-  .lrow-score .bar {
-    display: none;
+@media (max-width: 520px) {
+  /* Narrow rows: the pill keeps its color and icon; the name gets the room. */
+  .tier-pill {
+    padding: 0.2rem;
+  }
+  .tier-pill-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
