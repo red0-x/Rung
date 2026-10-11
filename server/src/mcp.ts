@@ -328,6 +328,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       const open = await store.latestQueueItemForPhone(o.id, phone, ['queued', 'in_progress']);
       if (open && !open.name) await store.updateQueueItem(open.id, { name: clean });
       emit('profile_saved', o, phone);
+      if (facts && hasFacts(profile.facts)) emit('context_saved', o, phone, String(Object.values(facts).filter(Boolean).length));
       log(`save_profile ${tag(o, phone)}`);
       return ok({
         saved: true,
@@ -360,6 +361,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       if (!hasFacts(mergeFacts(undefined, input, t))) return fail('nothing_to_save', 'Send at least one thing the caller actually told you.');
       const facts = mergeFacts(profile.facts, input, t);
       await store.upsertProfile({ ...profile, facts, factsUpdatedAt: t });
+      emit('context_saved', o, phone, String(Object.values(input).filter(Boolean).length));
       log(`update_profile ${tag(o, phone)} fields=${Object.keys(input).filter((k) => (input as Record<string, unknown>)[k]).join(',')}`);
       return ok({ saved: true, remembered: describeFacts(facts), guidance: 'Briefly acknowledge ("Got it, thanks.") and move on. Do not read their details back.' });
     },
@@ -462,6 +464,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
         await track({ etaMinutes: eta, etaAt });
         if (!o.dialNumber) {
           await track({ smsStatus: 'skipped', smsError: 'org has no Dial number to text from' });
+          emit('eta_text', o, phone, 'skipped');
         } else {
           try {
             await dial.sendSms(
@@ -478,10 +481,12 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
               { orgId: o.id },
             );
             texted = true;
+            emit('eta_text', o, phone, 'sent');
             await track({ smsStatus: 'sent', smsSentAt: now(), smsError: undefined });
           } catch (err) {
             log(`triage_call ${tag(o, phone)} confirmation sms failed: ${(err as Error).message}`);
             await track({ smsStatus: 'failed', smsError: (err as Error).message.slice(0, 300) });
+            emit('eta_text', o, phone, 'failed');
           }
         }
       }

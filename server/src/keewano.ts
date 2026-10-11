@@ -17,6 +17,8 @@ export type KeewanoEvent =
   | 'code_verified'
   | 'code_failed'
   | 'profile_saved'
+  | 'context_saved' // caller facts stored (update_profile or save_profile.facts); qualifier: n fields
+  | 'eta_text' // callback ETA text; qualifier: sent | failed | skipped
   | 'call_queued' // qualifier: critical | high | normal | low
   | 'callback_made' // qualifier: tier
   | 'call_done'; // qualifier: tier
@@ -28,12 +30,13 @@ export const EVENT_TYPE: Record<KeewanoEvent, number> = {
   code_verified: 50,
   code_failed: 50,
   profile_saved: 50,
+  context_saved: 50,
+  eta_text: 50,
   call_queued: 22, // Window Open
   callback_made: 20, // Button Click
   call_done: 20,
 };
 
-const COLUMN: Record<number, string> = { 16: 'Scene Loaded', 22: 'Window Open', 20: 'Button Click', 50: 'Onboarding Milestone' };
 const TIERS = ['critical', 'high', 'normal', 'low'] as const;
 
 export interface Keewano {
@@ -123,6 +126,21 @@ export function queriesFor(org: string): Array<{ id: string; title: string; sql:
       title: 'Callbacks made, by urgency',
       sql: `SELECT "Button Click" AS kind, count("Button Click") AS n FROM events WHERE "Button Click" IN (${inList('callback_made', org, TIERS)}) AND ${WINDOW} GROUP BY kind ORDER BY n DESC LIMIT 8`,
       format: grouped('callback_made', org, 'No callbacks yet'),
+    },
+    {
+      id: 'context_saved',
+      title: 'Caller details remembered (last 24 h)',
+      sql: `SELECT "Onboarding Milestone" AS kind, count("Onboarding Milestone") AS n FROM events WHERE "Onboarding Milestone" IN (${inList('context_saved', org, ['1', '2', '3', '4', '5', '6', '7'])}) AND ${WINDOW} GROUP BY kind ORDER BY n DESC LIMIT 8`,
+      format: (r) => {
+        const total = r.rows.reduce((s, row) => s + num(row[1]), 0);
+        return total ? `${total} callers had details saved for next time` : 'No details saved yet';
+      },
+    },
+    {
+      id: 'eta_text',
+      title: 'Callback time texts (last 24 h)',
+      sql: `SELECT "Onboarding Milestone" AS kind, count("Onboarding Milestone") AS n FROM events WHERE "Onboarding Milestone" IN (${inList('eta_text', org, ['sent', 'failed', 'skipped'])}) AND ${WINDOW} GROUP BY kind ORDER BY n DESC LIMIT 4`,
+      format: grouped('eta_text', org, 'No texts yet'),
     },
   ];
 }

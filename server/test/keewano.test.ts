@@ -107,6 +107,7 @@ describe('rung server emits keewano events', () => {
       expect(events).toEqual([
         'call_started:demo-bank:new',
         'call_queued:demo-bank:critical',
+        'eta_text:demo-bank:skipped',
         'callback_made:demo-bank:critical',
         'call_done:demo-bank:critical',
       ]);
@@ -116,5 +117,42 @@ describe('rung server emits keewano events', () => {
     } finally {
       await h.close();
     }
+  });
+
+  it('tracks saved caller context and the callback-time text, with no caller content', async () => {
+    const seen: Array<{ e: string; org: string; q: string; phone: string }> = [];
+    const stub: Keewano = {
+      enabled: true,
+      track: (e, org, phone, q) => void seen.push({ e, org, q: q ?? '', phone }),
+      flush: async () => {},
+      insights: async () => ({ enabled: true, asOf: null, stale: false, items: [] }),
+      stats: () => ({ enabled: true, insights: true, queued: 0, sent: 0, failed: 0 }),
+    };
+    const h = await boot({ REQUIRE_VERIFICATION: 'false' }, stub);
+    try {
+      await h.api('/org/number', { body: { numberId: 'mock_num_1' } });
+      const call = await openSimCall({ baseUrl: h.base, phone: NEW_CALLER, orgToken: (await h.store.getOrg(h.bank.id))!.mcpToken });
+      await call.call('triage_call', { intent: 'dispute', summary: 'Duplicate charge on my card.', caller_name: 'Sam Okafor' });
+      h.dial.failNextSms = true; // second caller's text is refused
+      await call.call('save_profile', { name: 'Sam Okafor', consent: true, facts: { occupation: 'nurse' } });
+      await call.call('update_profile', { household: 'two kids', note: 'night shifts' });
+      await call.close();
+      const tags = seen.map((x) => `${x.e}:${x.q}`);
+      expect(tags).toContain('eta_text:sent');
+      expect(tags).toContain('context_saved:1'); // save_profile with one fact
+      expect(tags).toContain('context_saved:2'); // update_profile with two fields
+      expect(seen.every((x) => x.org === 'demo-bank')).toBe(true);
+      // The raw phone only goes to track(), which pseudonymizes it. Nothing the caller said is ever passed.
+      expect(JSON.stringify(seen.map(({ e, org, q }) => ({ e, org, q })))).not.toMatch(/nurse|kids|shifts|Okafor|charge/i);
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('insights include remembered-details and text-delivery questions, scoped to the org', () => {
+    const ids = queriesFor('demo-bank').map((q) => q.id);
+    expect(ids).toEqual(expect.arrayContaining(['context_saved', 'eta_text']));
+    for (const q of queriesFor('demo-bank')) expect(q.sql).not.toContain('clinic');
+    expect(queriesFor('demo-bank').find((q) => q.id === 'eta_text')!.sql).toContain('rung_eta_text_failed_demo_bank');
   });
 });
