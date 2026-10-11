@@ -82,6 +82,7 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
           <button
             type="button"
             className="sb-link sb-logout"
+            aria-label="Log out"
             onClick={async () => {
               await signOut();
               navigate('/login', { replace: true });

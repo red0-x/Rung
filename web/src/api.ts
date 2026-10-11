@@ -1,4 +1,6 @@
 import type {
+  CallersResponse,
+  HistoryResponse,
   CallbackResponse,
   CodesResponse,
   DialLogResponse,
@@ -79,6 +81,10 @@ export const api = {
   transcript: (id: string) => request<TranscriptResponse>(`/api/queue/${enc(id)}/transcript`),
   callback: (id: string) => request<CallbackResponse>(`/api/queue/${enc(id)}/callback`, { method: 'POST' }),
   done: (id: string) => request<{ ok: true }>(`/api/queue/${enc(id)}/done`, { method: 'POST' }),
+  release: (id: string) => request<{ ok: true }>(`/api/queue/${enc(id)}/release`, { method: 'POST' }),
+  reopen: (id: string) => request<{ ok: true }>(`/api/queue/${enc(id)}/reopen`, { method: 'POST' }),
+  callers: () => request<CallersResponse>('/api/callers'),
+  history: (limit = 50) => request<HistoryResponse>(`/api/history?limit=${limit}`),
   profiles: () => request<ProfilesResponse>('/api/profiles'),
   codes: () => request<CodesResponse>('/api/dev/codes'),
   dialLog: () => request<DialLogResponse>('/api/dev/dial-log'),
@@ -94,6 +100,8 @@ export function errorText(err: unknown): string {
       number_taken: 'Someone just claimed that number. Pick another.',
       no_number: 'Claim a phone number before publishing.',
       already_member: 'You already belong to a company.',
+      not_in_progress: 'That callback was already finished or cancelled.',
+      not_done: 'That call is no longer marked done.',
       invalid: 'Some settings are not valid.',
     };
     const base = known[err.code] ?? err.message;

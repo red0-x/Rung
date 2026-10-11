@@ -4,6 +4,7 @@ import { Digits } from './Digits';
 
 interface Ev {
   key: string;
+  id: string;
   at: number;
   kind: 'in' | 'call' | 'done';
   title: string;
@@ -13,22 +14,32 @@ interface Ev {
 
 const hhmm = (t: number) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-export function Timeline({ items, requireVerification = false }: { items: QueueItemView[]; requireVerification?: boolean }) {
+export function Timeline({
+  items,
+  requireVerification = false,
+  onReopen,
+}: {
+  items: QueueItemView[];
+  requireVerification?: boolean;
+  onReopen?: (id: string) => void;
+}) {
   const midnight = new Date();
   midnight.setHours(0, 0, 0, 0);
   const evs: Ev[] = [];
   for (const i of items) {
     const name = i.name ?? 'Unknown caller';
+    const first = i.name ? i.name.split(' ')[0]! : 'Unknown caller';
     evs.push({
       key: i.id + ':in',
+      id: i.id,
       at: i.createdAt,
       kind: 'in',
       title: `${name} called`,
       sub: `${capitalize(i.intentLabel)} · ${i.trust === 'new' ? 'new caller' : i.trust === 'verified' && requireVerification ? 'verified' : 'known caller'}`,
       tier: i.tier,
     });
-    if (i.claimedAt) evs.push({ key: i.id + ':call', at: i.claimedAt, kind: 'call', title: `Called back ${name.split(' ')[0]}`, sub: `after ${clock(i.claimedAt - i.createdAt)}`, tier: i.tier });
-    if (i.doneAt) evs.push({ key: i.id + ':done', at: i.doneAt, kind: 'done', title: `${name.split(' ')[0]} handled`, sub: `+${i.savedMin} min returned`, tier: i.tier });
+    if (i.claimedAt) evs.push({ id: i.id, key: i.id + ':call', at: i.claimedAt, kind: 'call', title: `Called back ${first}`, sub: `after ${clock(i.claimedAt - i.createdAt)}`, tier: i.tier });
+    if (i.doneAt && i.status === 'done') evs.push({ id: i.id, key: i.id + ':done', at: i.doneAt, kind: 'done', title: `${first} handled`, sub: `+${i.savedMin} min returned`, tier: i.tier });
   }
   const list = evs.filter((e) => e.at >= midnight.getTime()).sort((a, b) => b.at - a.at).slice(0, 12);
 
@@ -49,6 +60,11 @@ export function Timeline({ items, requireVerification = false }: { items: QueueI
                 <b>{e.title}</b>
                 <span>{e.sub}</span>
               </span>
+              {e.kind === 'done' && onReopen && (
+                <button type="button" className="tl-action" onClick={() => onReopen(e.id)}>
+                  Reopen
+                </button>
+              )}
             </li>
           ))}
         </ol>

@@ -103,6 +103,10 @@ function Editor({ org }: { org: OrgView }) {
 
   const saved = useMemo(() => JSON.stringify(toDraft(org)), [org]);
   const dirty = JSON.stringify(draft) !== saved;
+  // A stale "Saved." next to new edits is confusing: clear it as soon as the draft changes again.
+  useEffect(() => {
+    if (dirty) setSaveMsg((m) => (m?.ok ? null : m));
+  }, [dirty, draft]);
 
   const setS = <K extends keyof OrgSettings>(k: K, v: OrgSettings[K]) =>
     setDraft((d) => ({ ...d, settings: { ...d.settings, [k]: v } }));

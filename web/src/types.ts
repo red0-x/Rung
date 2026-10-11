@@ -169,3 +169,25 @@ export interface ApiErrorBody {
   error: string;
   message?: string;
 }
+
+// v3.1 additions
+export interface CallerRow {
+  key: string;
+  name: string | null;
+  phoneMasked: string;
+  saved: boolean;
+  trust: Trust;
+  callCount: number;
+  lastCallAt: number | null;
+  lastIntentLabel: string | null;
+  lastTier: Tier | null;
+  lastSummary: string | null;
+  lastAmountUsd: number | null;
+  openStatus: 'queued' | 'in_progress' | null;
+}
+export interface CallersResponse {
+  callers: CallerRow[];
+}
+export interface HistoryResponse {
+  items: QueueItemView[];
+}

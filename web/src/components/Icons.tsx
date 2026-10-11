@@ -65,3 +65,25 @@ export const IconClose = (p: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 export const IconPeople = (p: SVGProps<SVGSVGElement>) => IconCallers(p);
+
+/** One glyph per intent, so the list reads by shape as well as words. */
+const INTENT_PATHS: Record<string, string> = {
+  fraud_in_progress: 'M12 3.5l7 2.6v5.4c0 4.3-2.9 7.6-7 9-4.1-1.4-7-4.7-7-9V6.1zM12 8.5v4M12 15.5h.01',
+  medical_emergency: 'M9.5 4h5v5.5H20v5h-5.5V20h-5v-5.5H4v-5h5.5z',
+  locked_out: 'M6.5 11h11v8.5h-11zM8.5 11V8.5a3.5 3.5 0 0 1 7 0V11M12 14.5v2',
+  payment_issue: 'M3.5 6.5h17v11h-17zM3.5 10h17M7 14.5h3',
+  money_movement: 'M4 9h14l-3.5-3.5M20 15H6l3.5 3.5',
+  account_change: 'M4 20l1-4L15.5 5.5l3 3L8 19zM13.5 7.5l3 3',
+  dispute: 'M6 3.5h12v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4zM9 8h6M9 11.5h6M9 15h3.5',
+  account_opening: 'M4 20.5h16M5.5 20.5V9.5L12 4l6.5 5.5v11M9.5 20.5v-5h5v5M12 7.5v4M10 9.5h4',
+  general_question: 'M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17zM9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7M12 16.8h.01',
+  other: 'M4 6.5h16v10H9.5L5.5 20v-3.5H4z',
+};
+
+export function IntentIcon({ intent, ...p }: { intent?: string | null } & SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(p)}>
+      <path d={INTENT_PATHS[intent ?? 'other'] ?? INTENT_PATHS.other} />
+    </svg>
+  );
+}

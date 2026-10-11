@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, errorText } from '../api';
 import { capitalize, clock, usd } from '../format';
-import { useCountUp } from '../hooks';
 import type { QueueItemView, TranscriptResponse } from '../types';
 import { useCollapseOut } from '../useFlip';
 import { Digits } from './Digits';
 import { initials } from './Shell';
+import { IntentIcon } from './Icons';
 
 export interface RowFlag {
   kind: 'new' | 'up';
@@ -69,8 +69,8 @@ interface RowProps {
   onSelect: (id: string) => void;
 }
 
-/** One ranked caller in the master list. The whole row is the selection button. */
-export function ListRow({ item, nowEst, agingPerMin, agingCap, flag, selected, leaving, onSelect }: RowProps) {
+/** One caller in the master list: quiet rank, intent icon tinted by tier, name, subtitle, live time pill. */
+export function ListRow({ item, nowEst, flag, selected, leaving, onSelect }: RowProps) {
   const ref = useRef<HTMLLIElement>(null);
   useCollapseOut(ref, leaving, 280);
   const mounted = useRef(false);
@@ -80,8 +80,6 @@ export function ListRow({ item, nowEst, agingPerMin, agingCap, flag, selected, l
 
   const inCall = item.status === 'in_progress';
   const sinceMs = Math.max(0, nowEst - (inCall ? (item.claimedAt ?? item.createdAt) : item.createdAt));
-  const aging = Math.floor(liveAging(item, nowEst, agingPerMin, agingCap));
-  const total = useCountUp(item.score.urgency + item.score.value + aging, 500);
   const fresh = flag && flag.until > Date.now() ? flag : undefined;
 
   return (
@@ -95,7 +93,9 @@ export function ListRow({ item, nowEst, agingPerMin, agingCap, flag, selected, l
         type="button"
         className="lrow"
         aria-pressed={selected}
-        aria-label={`${inCall ? 'On a call' : `Rank ${item.rank}`}: ${item.name ?? 'Unknown caller'}, ${item.intentLabel}`}
+        aria-label={`${inCall ? 'On a call' : `Rank ${item.rank}`}: ${item.name ?? 'Unknown caller'}, ${item.intentLabel}${
+          item.amountUsd != null ? `, ${usd(item.amountUsd)}` : ''
+        }`}
         onClick={() => onSelect(item.id)}
         disabled={leaving}
       >
@@ -108,23 +108,22 @@ export function ListRow({ item, nowEst, agingPerMin, agingCap, flag, selected, l
             </span>
           )}
         </span>
-        <Avatar item={item} />
+        <span className="intent-av" aria-hidden="true">
+          <IntentIcon intent={item.intent} width={22} height={22} />
+        </span>
         <span className="lrow-main">
           <span className="lrow-name">
-            {item.name ?? 'Unknown caller'}
+            <span className={item.name ? undefined : 'unknown-name'}>{item.name ?? 'Unknown caller'}</span>
             {fresh && <span className="flag">{fresh.kind === 'new' ? 'New' : `Up from #${fresh.from}`}</span>}
           </span>
           <span className="lrow-sub">
             {capitalize(item.intentLabel)}
-            {item.amountUsd != null && <b className="tnum"> · {usd(item.amountUsd)}</b>}
+            {item.amountUsd != null && <span className="tnum"> · {usd(item.amountUsd)}</span>}
           </span>
         </span>
-        <span className="lrow-meta">
-          <span className={`wait-pill tnum${inCall ? ' is-call' : ''}`}>
-            <Digits text={clock(sinceMs)} />
-          </span>
-          {!inCall && <span className="lrow-score tnum">{total} pts</span>}
-          {inCall && <span className="lrow-score">on call</span>}
+        <span className={`time-pill tnum${inCall ? ' is-call' : ''}`}>
+          {inCall && <span className="time-pill-l">on call </span>}
+          <Digits text={clock(sinceMs)} />
         </span>
       </button>
     </li>
