@@ -21,3 +21,4 @@ dist/
 *.log
 server/seed.json
 .vercel
+.gstack/
