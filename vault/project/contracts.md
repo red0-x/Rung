@@ -17,7 +17,7 @@ No tool takes a phone number. Caller = `X-Dial-User-Number` (E.164; missing or `
 
 | Tool | Args | Returns |
 | --- | --- | --- |
-| `lookup_caller` | — | `{known, name, first_name, last_issue:{summary,when}\|null, has_open_request, org_name, guidance}` |
+| `lookup_caller` | — | `{known, name, first_name, name_source, last_issue, recent_issues[≤3], call_count, previous_calls, has_open_request, open_request:{summary,status,position,estimated_callback_minutes}\|null, org_name, guidance}` |
 | `send_code` (only if `REQUIRE_VERIFICATION`) | — | `{sent, expires_in_minutes:5, guidance}` · errors `rate_limited`, `sms_failed` |
 | `check_code` (only if `REQUIRE_VERIFICATION`) | `code` | `{verified, attempts_left?, reason?, guidance}` |
 | `save_profile` | `name`, `consent` | `{saved, name, guidance}` · errors `consent_required`, `verification_required` |
