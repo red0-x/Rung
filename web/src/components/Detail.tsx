@@ -5,7 +5,7 @@ import { useCountUp } from '../hooks';
 import type { QueueItemView } from '../types';
 import { Digits } from './Digits';
 import { IconClose, IconPhone } from './Icons';
-import { Avatar, Transcript, liveAging } from './QueueRow';
+import { Avatar, TierIcon, Transcript, liveAging, waitHeat } from './QueueRow';
 import { ScoreBar } from './ScoreBar';
 
 
@@ -40,7 +40,8 @@ export function Detail({ item, nowEst, agingPerMin, agingCap, scaleMax, phone, b
         <Avatar item={item} size="lg" />
         <div className="detail-who">
           <p className="eyebrow">{inCall ? 'On a call' : `Rank #${item.rank}`}</p>
-          <h2 className="detail-name">{item.name ?? 'Unknown caller'}</h2>
+          <h2 className={`detail-name${item.name ? '' : ' unknown-name'}`}>{item.name ?? 'Unknown caller'}</h2>
+          {!item.name && <p className="unknown-hint">Name not captured on the call</p>}
           <p className="detail-phone tnum">
             {phone ? (
               <span className="revealed">{phone.phone}</span>
@@ -54,11 +55,11 @@ export function Detail({ item, nowEst, agingPerMin, agingCap, scaleMax, phone, b
 
       <div className="chips">
         <span className={`chip chip-tier tier-${item.tier}`}>
-          <i className="tier-dot" aria-hidden="true" />
+          <TierIcon tier={item.tier} />
           {item.tierLabel}
         </span>
         <span className="chip">{capitalize(item.intentLabel)}</span>
-        {item.amountUsd != null && <span className="chip tnum">{usd(item.amountUsd)}</span>}
+        {item.amountUsd != null && <span className="chip money tnum">{usd(item.amountUsd)}</span>}
         {item.returning && <span className="chip">Returning</span>}
       </div>
 
@@ -113,7 +114,7 @@ export function Detail({ item, nowEst, agingPerMin, agingCap, scaleMax, phone, b
             <button type="button" className="btn btn-primary btn-lg" disabled={busy} onClick={() => onCallBack(item)}>
               <IconPhone /> {busy ? 'Connecting…' : 'Call back'}
             </button>
-            <span className="muted tnum wait-inline">
+            <span className={`wait-pill tnum wait-inline${waitHeat(nowEst - item.createdAt)}`}>
               waiting <Digits text={clock(nowEst - item.createdAt)} />
             </span>
           </>

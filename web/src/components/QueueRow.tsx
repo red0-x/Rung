@@ -5,6 +5,7 @@ import { useCountUp } from '../hooks';
 import type { QueueItemView, TranscriptResponse } from '../types';
 import { useCollapseOut } from '../useFlip';
 import { Digits } from './Digits';
+import { ScoreBar } from './ScoreBar';
 import { initials } from './Shell';
 
 export interface RowFlag {
@@ -51,6 +52,37 @@ export function Avatar({ item, size = 'md' }: { item: QueueItemView; size?: 'md'
       {item.name ? initials(item.name) : '?'}
     </span>
   );
+}
+
+/** Small glyph per tier so urgency reads before the words do. */
+export function TierIcon({ tier }: { tier: QueueItemView['tier'] }) {
+  const d =
+    tier === 'critical'
+      ? 'M8 2.5 14 13H2z M8 6.5v3 M8 11.3v.01'
+      : tier === 'high'
+        ? 'M8 13V3.5 M4 7.5l4-4 4 4'
+        : tier === 'normal'
+          ? 'M4.5 8h7'
+          : 'M8 3v9.5 M4 8.5l4 4 4-4';
+  return (
+    <svg className="tier-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  );
+}
+
+export function TierPill({ item }: { item: QueueItemView }) {
+  return (
+    <span className={`tier-pill tier-${item.tier}`} title={item.tierLabel}>
+      <TierIcon tier={item.tier} />
+      <span className="tier-pill-text">{item.tierLabel}</span>
+    </span>
+  );
+}
+
+/** Wait pill warms with time: amber past 5 min, red past 15. */
+export function waitHeat(ms: number): string {
+  return ms >= 15 * 60_000 ? ' is-hot' : ms >= 5 * 60_000 ? ' is-warm' : '';
 }
 
 export function liveAging(item: QueueItemView, nowEst: number, perMin: number, cap: number): number {
@@ -111,19 +143,26 @@ export function ListRow({ item, nowEst, agingPerMin, agingCap, flag, selected, l
         <Avatar item={item} />
         <span className="lrow-main">
           <span className="lrow-name">
-            {item.name ?? 'Unknown caller'}
+            <span className={`lrow-nm${item.name ? '' : ' unknown-name'}`}>{item.name ?? 'Unknown caller'}</span>
+            <TierPill item={item} />
             {fresh && <span className="flag">{fresh.kind === 'new' ? 'New' : `Up from #${fresh.from}`}</span>}
           </span>
           <span className="lrow-sub">
-            {capitalize(item.intentLabel)}
-            {item.amountUsd != null && <b className="tnum"> · {usd(item.amountUsd)}</b>}
+            <span className="lrow-intent">{capitalize(item.intentLabel)}</span>
+            {item.amountUsd != null && <b className="money tnum">{usd(item.amountUsd)}</b>}
           </span>
+          {!item.name && <span className="unknown-hint tnum">{item.phoneMasked} · name not captured</span>}
         </span>
         <span className="lrow-meta">
-          <span className={`wait-pill tnum${inCall ? ' is-call' : ''}`}>
+          <span className={`wait-pill tnum${inCall ? ' is-call' : waitHeat(sinceMs)}`}>
             <Digits text={clock(sinceMs)} />
           </span>
-          {!inCall && <span className="lrow-score tnum">{total} pts</span>}
+          {!inCall && (
+            <span className="lrow-score tnum">
+              <ScoreBar urgency={item.score.urgency} value={item.score.value} aging={aging} scaleMax={Math.max(160, total)} />
+              {total}
+            </span>
+          )}
           {inCall && <span className="lrow-score">on call</span>}
         </span>
       </button>

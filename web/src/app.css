@@ -2139,3 +2139,200 @@ code {
     min-height: 0;
   }
 }
+
+/* ── Priority heat (round 4): urgency reads as color before words ── */
+.tier-critical {
+  --tier-soft: #f9e4dd;
+  --tier-soft-hover: #f6d9d0;
+}
+.tier-high {
+  --tier-soft: #f8edd3;
+  --tier-soft-hover: #f4e5c3;
+}
+.tier-normal {
+  --tier-soft: #e6e9f5;
+  --tier-soft-hover: #dde2f2;
+}
+.tier-low {
+  --tier-soft: #eeeee7;
+  --tier-soft-hover: #e7e7df;
+}
+.lrow-wrap[class*='tier-'] .lrow {
+  background: var(--tier-soft);
+  box-shadow: inset 4px 0 0 var(--tier);
+}
+@media (hover: hover) and (pointer: fine) {
+  .lrow-wrap[class*='tier-'] .lrow:hover,
+  .lrow-wrap.is-selected .lrow:hover {
+    background: var(--tier-soft-hover);
+  }
+}
+/* Selected: same heat, stronger outline (open on the side that joins the brief). */
+.lrow-wrap.is-selected .lrow {
+  background: var(--tier-soft);
+  box-shadow:
+    inset 6px 0 0 var(--tier),
+    inset 0 1.5px 0 var(--ink),
+    inset 0 -1.5px 0 var(--ink),
+    inset 1.5px 0 0 var(--ink);
+}
+@media (max-width: 899px) {
+  .lrow-wrap.is-selected .lrow {
+    box-shadow:
+      inset 6px 0 0 var(--tier),
+      inset 0 0 0 1.5px var(--ink);
+  }
+}
+.detail-body[class*='tier-'] {
+  border-radius: 20px;
+  background: var(--tier-soft);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+.lrow-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.15rem;
+}
+.lrow-intent {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tier-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.08rem 0.45rem 0.08rem 0.35rem;
+  border-radius: 999px;
+  background: var(--tier);
+  color: var(--ivory);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  flex: none;
+}
+.tier-pill.tier-high {
+  color: var(--ink);
+}
+.tier-pill.tier-low {
+  background: var(--low);
+}
+.tier-icon {
+  flex: none;
+}
+.money {
+  padding: 0.05rem 0.45rem;
+  border-radius: 6px;
+  background: rgba(31, 157, 85, 0.12);
+  color: #17733f !important;
+  font-weight: 700;
+  flex: none;
+}
+.chip.money {
+  border-radius: 999px;
+}
+.lrow-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--ink);
+  font-weight: 700;
+}
+.lrow-score .bar {
+  width: 3.4rem;
+  height: 0.4rem;
+  background: rgba(17, 17, 17, 0.1);
+}
+.lrow-score .bar-fill {
+  gap: 1px;
+}
+.lrow-score .seg-urgency {
+  background: var(--tier);
+}
+.wait-pill {
+  transition:
+    background-color 400ms var(--ease-out),
+    color 400ms var(--ease-out);
+}
+.wait-pill.is-warm {
+  background: #f6e3b4;
+  color: var(--high-ink);
+}
+.wait-pill.is-hot {
+  background: #f5cfc5;
+  color: var(--critical-ink);
+}
+.wait-inline.wait-pill {
+  font-weight: 600;
+}
+.unknown-name {
+  font-style: italic;
+  font-weight: 600;
+  color: var(--muted);
+}
+.lrow-main .unknown-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.detail-who .unknown-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.seg-bar-lg {
+  height: 1.55rem;
+  gap: 3px;
+  background: var(--ink-10);
+}
+.seg-bar-lg i {
+  display: grid;
+  place-items: center;
+  min-width: 1.6rem;
+  color: var(--ivory);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.seg-bar-lg i.tier-high {
+  color: var(--ink);
+}
+.seg-bar-lg i:first-child {
+  border-radius: 999px 0 0 999px;
+}
+.seg-bar-lg i:last-child {
+  border-radius: 0 999px 999px 0;
+}
+.seg-bar-lg i:only-child {
+  border-radius: 999px;
+}
+.tier-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.8rem;
+}
+.lrow-name {
+  overflow: visible;
+  min-width: 0;
+}
+.lrow-nm {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 520px) {
+  /* Narrow rows: the pill keeps its color and icon; the name gets the room. */
+  .tier-pill {
+    padding: 0.2rem;
+  }
+  .tier-pill-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

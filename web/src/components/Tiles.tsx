@@ -53,20 +53,26 @@ export function UrgencyTile({ queued }: { queued: QueueItemView[] }) {
   return (
     <section className="tile" aria-label="Waiting by urgency">
       <p className="tile-label">By urgency</p>
-      <dl className="tier-stats">
-        {TIERS.map((t) => (
-          <div key={t} className={`tier-${t}${counts[t] ? '' : ' is-zero'}`}>
+      <div className={`seg-bar seg-bar-lg${queued.length ? '' : ' is-empty'}`} role="img" aria-label={TIERS.map((t) => `${TIER_LABEL[t]} ${counts[t]}`).join(', ')}>
+        {TIERS.map((t) =>
+          counts[t] ? (
+            <i key={t} className={`tier-${t}`} style={{ width: `${(counts[t] / n) * 100}%` }}>
+              <span className="tnum">{counts[t]}</span>
+            </i>
+          ) : null,
+        )}
+      </div>
+      <dl className="tier-stats tier-legend">
+        {TIERS.filter((t) => counts[t]).map((t) => (
+          <div key={t} className={`tier-${t}`}>
             <dt>
               <i className="tier-dot" aria-hidden="true" />
               {TIER_LABEL[t]}
             </dt>
-            <dd className="tnum">{counts[t]}</dd>
           </div>
         ))}
+        {!queued.length && <div className="muted small">No one waiting</div>}
       </dl>
-      <div className="seg-bar" aria-hidden="true">
-        {TIERS.map((t) => (counts[t] ? <i key={t} className={`tier-${t}`} style={{ width: `${(counts[t] / n) * 100}%` }} /> : null))}
-      </div>
     </section>
   );
 }
