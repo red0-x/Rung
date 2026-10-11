@@ -49,7 +49,7 @@ function rowToProfile(r: Row): Profile {
     phone: r.phone,
     name: r.name,
     consentAt: ms(r.consent_at)!,
-    verifiedAt: ms(r.verified_at)!,
+    verifiedAt: ms(r.verified_at),
     createdAt: ms(r.created_at)!,
   };
 }

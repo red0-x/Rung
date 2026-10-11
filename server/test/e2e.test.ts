@@ -363,7 +363,7 @@ describe('dashboard auth', () => {
     const who = 'newco@test.rung';
     const me = await h.api('/me', { as: who });
     expect(me.status).toBe(200);
-    expect(me.body).toMatchObject({ user: { email: who }, org: null, role: null, platform: { dial: 'mock', demoShowCodes: true, enableDev: true } });
+    expect(me.body).toMatchObject({ user: { email: who }, org: null, role: null, platform: { dial: 'mock', demoShowCodes: true, enableDev: true, requireVerification: true } });
     for (const p of ['/queue', '/org', '/numbers', '/prompt-preview', '/profiles', '/dev/codes']) {
       expect(await h.api(p, { as: who })).toEqual({ status: 403, body: { error: 'no_org' } });
     }

@@ -25,11 +25,22 @@ export function promptVars(orgName: string, s: OrgSettings): Record<string, stri
   };
 }
 
-/** Strip the leading HTML comment(s), then fill `{{var}}` placeholders. Unknown placeholders are left as-is. */
-export function renderPrompt(template: string, orgName: string, settings: OrgSettings): string {
+export interface PromptFlags {
+  /** Include the texted-code steps (REQUIRE_VERIFICATION). */
+  require_verification: boolean;
+}
+
+/**
+ * Strip HTML comments, resolve `{{#if flag}}...{{else}}...{{/if}}` blocks (not nested),
+ * then fill `{{var}}` placeholders. Unknown placeholders are left as-is.
+ */
+export function renderPrompt(template: string, orgName: string, settings: OrgSettings, flags: PromptFlags): string {
   const vars = promptVars(orgName, settings);
   return template
     .replace(/<!--[\s\S]*?-->\s*/g, '')
+    .replace(/\{\{#if ([a-z_]+)\}\}\n?([\s\S]*?)(?:\{\{else\}\}\n?([\s\S]*?))?\{\{\/if\}\}\n?/g, (_m, k: string, yes: string, no?: string) =>
+      flags[k as keyof PromptFlags] ? yes : (no ?? ''),
+    )
     .replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (m, k: string) => (k in vars ? vars[k]! : m))
     .trim();
 }

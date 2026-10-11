@@ -20,6 +20,8 @@ services:
         value: "false"
       - key: STORE
         value: supabase
+      - key: REQUIRE_VERIFICATION
+        value: "false" # texted codes off until 10DLC; see docs/GO_LIVE.md
       - key: DEMO_SHOW_CODES
         value: "true"
       - key: DIAL_API_BASE

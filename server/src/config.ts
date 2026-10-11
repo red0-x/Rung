@@ -23,6 +23,11 @@ export interface Config {
   mcpSharedSecret?: string;
   /** Only allow tool calls when Dial says the call is inbound. */
   requireInbound: boolean;
+  /**
+   * Texted-code verification (send_code/check_code, code gate on sensitive intents and save_profile).
+   * Default off: SMS to regular phones needs 10DLC. Turn on with REQUIRE_VERIFICATION=true.
+   */
+  requireVerification: boolean;
   /** Demo-day fallback: expose pending SMS codes on the dashboard. Default on; forced on in Dial mock mode. */
   demoShowCodes: boolean;
   /** Dev conveniences (`Bearer dev:<email>`, /api/dev/reset). Never on in production. */
@@ -99,6 +104,7 @@ export function loadConfig(env: Env = process.env): Config {
     numberPool: parseNumberPool(env.DIAL_NUMBER_POOL),
     mcpSharedSecret: str(env.MCP_SHARED_SECRET),
     requireInbound: bool(env.REQUIRE_INBOUND, true),
+    requireVerification: bool(env.REQUIRE_VERIFICATION, false),
     // Dial SMS only reaches other Dial numbers until 10DLC registration, so the dashboard
     // code fallback defaults on everywhere. Live mode may set DEMO_SHOW_CODES=false explicitly.
     demoShowCodes: dialMock ? true : bool(env.DEMO_SHOW_CODES, true),
@@ -137,6 +143,7 @@ export function checkConfig(cfg: Config): { fatal: string[]; warnings: string[] 
     warnings.push('DIAL_API_KEY is set but DIAL_NUMBER_POOL is empty: only mock numbers can be claimed.');
   }
   if (cfg.dialMock) warnings.push('Dial is in MOCK mode: SMS, number patches and call fetches are recorded, not sent.');
-  if (cfg.demoShowCodes) warnings.push('Texted codes are visible on the dashboard (/api/dev/codes).');
+  if (!cfg.requireVerification) warnings.push('REQUIRE_VERIFICATION is off: no texted codes; callers are recognized by number only.');
+  if (cfg.demoShowCodes && cfg.requireVerification) warnings.push('Texted codes are visible on the dashboard (/api/dev/codes).');
   return { fatal, warnings };
 }

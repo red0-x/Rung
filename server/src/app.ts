@@ -173,7 +173,12 @@ export function createApp(deps: AppDeps): Express {
     next();
   });
 
-  const platform = () => ({ dial: dial.mock ? 'mock' : 'live', demoShowCodes: cfg.demoShowCodes, enableDev: cfg.enableDev });
+  const platform = () => ({
+    dial: dial.mock ? 'mock' : 'live',
+    demoShowCodes: cfg.demoShowCodes && cfg.requireVerification,
+    enableDev: cfg.enableDev,
+    requireVerification: cfg.requireVerification,
+  });
 
   api.get('/me', (_req, res) => {
     const { user, org, role } = L(res);
@@ -266,7 +271,7 @@ export function createApp(deps: AppDeps): Express {
   });
 
   const render = (name: string, settings: Org['settings']) =>
-    renderPrompt(loadPromptTemplate(cfg.promptTemplatePath), name, settings);
+    renderPrompt(loadPromptTemplate(cfg.promptTemplatePath), name, settings, { require_verification: cfg.requireVerification });
 
   api.get('/prompt-preview', (_req, res) => {
     const org = orgOf(res);
@@ -406,7 +411,7 @@ export function createApp(deps: AppDeps): Express {
 
   // Demo-day fallback if SMS delivery fails on stage: the caller can read the code off the dashboard.
   api.get('/dev/codes', (_req, res) => {
-    if (!cfg.demoShowCodes) {
+    if (!cfg.demoShowCodes || !cfg.requireVerification) {
       res.status(404).json({ error: 'not_found' });
       return;
     }

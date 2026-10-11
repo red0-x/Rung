@@ -93,9 +93,16 @@ interface Script {
 async function runCall(s: Script): Promise<void> {
   const call = await openSimCall({ baseUrl: base, phone: s.from, orgToken: s.orgToken, agentNumber: s.agentNumber, secret });
   try {
+    // With REQUIRE_VERIFICATION off the server doesn't list send_code/check_code: skip the code steps.
+    const hasCodes = (await call.tools()).includes('send_code');
     const who = must(await call.call('lookup_caller'), 'lookup_caller');
     if (who.data.known) console.log(`    agent: "Welcome back, ${who.data.first_name}."`);
-    if (s.enroll || s.verify) {
+    if ((s.enroll || s.verify) && !hasCodes) {
+      console.log('    (verification off on this server: no texted code)');
+      if (s.enroll && !who.data.known) {
+        must(await call.call('save_profile', { name: s.name ?? 'Test Caller', consent: true }), 'save_profile');
+      }
+    } else if (s.enroll || s.verify) {
       must(await call.call('send_code'), 'send_code');
       const code = s.code ?? (await codeFromDashboard(s.from));
       const checked = must(await call.call('check_code', { code }), 'check_code');
@@ -136,7 +143,7 @@ async function demo(): Promise<void> {
     triage: { intent: 'dispute', amount_usd: 12, summary: 'Sam was charged twice for a $12 coffee order yesterday and wants one charge reversed.' },
   });
 
-  console.log('\nCall 2: returning caller Maria, fraud in progress ($4,200), verifies by code');
+  console.log('\nCall 2: returning caller Maria, fraud in progress ($4,200) (verifies by code if the server requires it)');
   await runCall({
     from: '+15555550101',
     orgToken,

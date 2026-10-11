@@ -5,6 +5,11 @@ import { defaultSettings } from '../src/scoring.js';
 import { mergeSettings, normalizeSettings } from '../src/settings.js';
 
 describe('config', () => {
+  it('verification is off unless REQUIRE_VERIFICATION=true', () => {
+    expect(loadConfig({}).requireVerification).toBe(false);
+    expect(loadConfig({ REQUIRE_VERIFICATION: 'true' }).requireVerification).toBe(true);
+  });
+
   it('mock Dial without a key: mock pool, codes shown, memory store without Supabase', () => {
     const c = loadConfig({});
     expect(c.dialMock).toBe(true);
@@ -71,12 +76,23 @@ describe('settings', () => {
 describe('prompt template', () => {
   it('renders every placeholder from org settings', () => {
     const s = mergeSettings(defaultSettings('Demo Bank'), { greeting: 'Thanks for calling Demo Bank.', tone: 'crisp' });
-    const p = renderPrompt(loadPromptTemplate(), 'Demo Bank', s);
+    const p = renderPrompt(loadPromptTemplate(), 'Demo Bank', s, { require_verification: true });
     expect(p).not.toMatch(/\{\{|<!--/);
     expect(p).toContain("Demo Bank's priority line");
     expect(p).toContain('Thanks for calling Demo Bank.');
     expect(p).toContain('Tone: crisp.');
     expect(p).toContain('moving money (money_movement), account change (account_change)');
     expect(p).toContain('- fraud_in_progress: suspected fraud');
+    expect(p).toContain('Call send_code. Never say the code yourself.');
+  });
+
+  it('omits every texted-code step when verification is off, and stays coherent', () => {
+    const p = renderPrompt(loadPromptTemplate(), 'Demo Bank', defaultSettings('Demo Bank'), { require_verification: false });
+    expect(p).not.toMatch(/\{\{|<!--|send_code|check_code|verification code|texted|six-digit/i);
+    expect(p).toContain('call lookup_caller');
+    expect(p).toContain('call save_profile with their full name and consent set to true');
+    expect(p).toContain('A specialist will confirm it\'s you and handle that on the callback.');
+    expect(p).toContain('Call triage_call');
+    expect(p).not.toMatch(/\n{3,}/);
   });
 });

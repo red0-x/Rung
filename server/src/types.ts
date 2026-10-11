@@ -78,7 +78,8 @@ export interface Profile {
   phone: string;
   name: string;
   consentAt: number;
-  verifiedAt: number;
+  /** When the caller last proved the number by texted code; unset if saved with consent only. */
+  verifiedAt?: number;
   createdAt: number;
 }
 

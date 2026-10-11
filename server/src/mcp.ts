@@ -110,6 +110,8 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
     },
   );
 
+  // Texted-code tools exist only when verification is on (REQUIRE_VERIFICATION=true).
+  if (cfg.requireVerification) {
   server.registerTool(
     'send_code',
     {
@@ -188,13 +190,16 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       });
     },
   );
+  }
 
   server.registerTool(
     'save_profile',
     {
       title: 'Save caller profile',
       description:
-        "Saves the caller's name so future calls from this number start with context. Requires that the caller just passed check_code and said yes to saving their details.",
+        cfg.requireVerification
+          ? "Saves the caller's name so future calls from this number start with context. Requires that the caller just passed check_code and said yes to saving their details."
+          : "Saves the caller's name so future calls from this number start with context. Only call it after the caller clearly said yes to saving their details.",
       inputSchema: {
         name: z.string().min(1).max(80).describe("The caller's full name as they said it."),
         consent: z.boolean().describe('True only if the caller explicitly agreed to save their details.'),
@@ -205,7 +210,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       if ('err' in id) return id.err;
       const { org: o, phone } = id;
       if (!consent) return fail('consent_required', 'Only save a profile after the caller explicitly agrees.');
-      if (!(await otp.isVerified(o.id, phone))) {
+      if (cfg.requireVerification && !(await otp.isVerified(o.id, phone))) {
         return fail('verification_required', 'Verify the caller first: send_code, then check_code, then save_profile.');
       }
       const t = now();
@@ -214,7 +219,8 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
         phone,
         name: name.trim(),
         consentAt: t,
-        verifiedAt: t,
+        // Only a texted code proves the number; consent alone never claims verified.
+        verifiedAt: cfg.requireVerification ? t : undefined,
         createdAt: t,
       });
       log(`save_profile ${tag(o, phone)}`);
@@ -249,10 +255,12 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       const { org: o, phone } = id;
       const s = o.settings;
       const meta = s.intents[intent];
-      const verified = await otp.isVerified(o.id, phone);
+      // Without verification, nobody is 'verified': a number only recognizes.
+      const verified = cfg.requireVerification && (await otp.isVerified(o.id, phone));
 
       // Caller ID can be spoofed: a number recognizes, only a texted code authorizes.
-      if (meta.sensitive && !verified) {
+      // With verification off, sensitive requests are queued; the specialist verifies on the callback.
+      if (cfg.requireVerification && meta.sensitive && !verified) {
         return fail(
           'verification_required',
           'This request involves moving money or changing an account. Verify the caller first: call send_code, ask them to read the code, call check_code, then call triage_call again.',

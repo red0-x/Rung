@@ -66,7 +66,7 @@ Tier labels: critical "Critical", high "High", normal "Normal", low "Low".
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
 | GET | `/api/health` | | `{ok, store:'memory'\|'supabase', dial:'mock'\|'live', time}` |
-| GET | `/api/me` | | `{user:{id,email}, org: OrgView\|null, role:'admin'\|null, platform:{dial:'mock'\|'live', demoShowCodes:boolean, enableDev:boolean}}` (never 403) |
+| GET | `/api/me` | | `{user:{id,email}, org: OrgView\|null, role:'admin'\|null, platform:{dial:'mock'\|'live', demoShowCodes:boolean, enableDev:boolean, requireVerification:boolean}}` (never 403) |
 | POST | `/api/org` | `{name}` | `201 {org}`. Creates org with default settings, caller becomes admin. `409 already_member` |
 | GET | `/api/org` | | `{org}` |
 | PATCH | `/api/org` | `{name?, settings?: Partial<OrgSettings>}` (intents may be partial per key) | `{org}`; `400 invalid` on zod failure |
@@ -80,7 +80,7 @@ Tier labels: critical "Critical", high "High", normal "Normal", low "Low".
 | POST | `/api/queue/:id/callback` | | `{phone, tel}` and status → `in_progress` |
 | POST | `/api/queue/:id/done` | | `{ok:true}` |
 | GET | `/api/profiles` | | `{profiles:[{name, phoneMasked, createdAt, verified:boolean}]}` |
-| GET | `/api/dev/codes` | | `{codes:[{phoneMasked, code, expiresAt}]}` this org only; `404` unless `demoShowCodes` |
+| GET | `/api/dev/codes` | | `{codes:[{phoneMasked, code, expiresAt}]}` this org only; `404` unless `demoShowCodes` and `requireVerification` |
 | GET | `/api/dev/dial-log` | | `{mock:boolean, sms:[{toMasked, from, body, at}], patches:[{numberId, at, inboundInstruction}], callFetches:[{callId, at}]}` this org only |
 | POST | `/api/dev/reset` | | `{ok:true}` reseeds (ENABLE_DEV only, else 404) |
 
@@ -105,6 +105,7 @@ interface QueueResponse {
 - Dial attaches one Context MCP per account, so production uses `POST /mcp` with static header `X-Mcp-Secret: <MCP_SHARED_SECRET>` (bearer or `/mcp/<MCP_SHARED_SECRET>` also accepted). Required when the secret is set; production won't boot without it. A missing/templated agent number (tool discovery) is allowed with the secret: tools list fine, tool calls return error `org_unknown`.
 - Caller identity only from `X-Dial-User-Number` (E.164; missing / `{{template}}` values = unknown caller).
 - Tools: `lookup_caller()`, `send_code()`, `check_code({code})`, `save_profile({name, consent})`, `triage_call({intent, amount_usd?, summary, caller_name?})`. Shapes per `attachments/RUNG_CONTEXT.md` §4.
+- `REQUIRE_VERIFICATION` (server env, default **false**): when false, `send_code`/`check_code` are not listed, `save_profile` needs consent only, `triage_call` never returns `verification_required`, trust is only `recognized`/`new`, and `platform.demoShowCodes` is false. When true: texted-code flow as above.
 
 ## Webhooks
 

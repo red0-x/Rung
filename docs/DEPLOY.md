@@ -45,7 +45,8 @@ Server:
 | `MCP_SHARED_SECRET` | prod | static `X-Mcp-Secret` header on the Dial Context MCP |
 | `DIAL_NUMBER_POOL` | live | `[{"id":"...","number":"+1..."}]` |
 | `DIAL_MOCK` | no | `true` forces the mock client even with a key |
-| `DEMO_SHOW_CODES` | no | default `true` (texted codes visible on the dashboard) |
+| `REQUIRE_VERIFICATION` | no | default `false`: no texted codes (SMS needs 10DLC). `true` restores send_code/check_code and the code gate |
+| `DEMO_SHOW_CODES` | no | default `true`; only matters with verification on (texted codes visible on the dashboard) |
 | `ENABLE_DEV` | no | default true outside production; always off in production |
 | `REQUIRE_INBOUND`, `SEED_ON_BOOT` | no | default true |
 | `DEMO_BANK_EMAIL`, `DEMO_CLINIC_EMAIL` | no | default `bank@rung.demo` / `clinic@rung.demo`; linked to the seeded orgs |

@@ -9,9 +9,10 @@ Known facts (from Dial docs and the coordinator's live check):
   `<PUBLIC_URL>/mcp`, with a static header `X-Mcp-Secret: <MCP_SHARED_SECRET>`. The server picks the org from
   `X-Dial-Agent-Number` (the number dialed). Per-org `/mcp/<token>` URLs still work but aren't needed.
 - **SMS only reaches other Dial numbers today.** Texts to regular phones need 10DLC registration (not available at the
-  event). So `send_code` will likely fail to deliver to a real caller. Fallback (on by default, `DEMO_SHOW_CODES=true`):
-  `send_code` still succeeds, the code appears in the dashboard's "Texted codes" panel (`GET /api/dev/codes`), and the
-  caller reads it from the screen. Say so on stage.
+  event). So the server runs with `REQUIRE_VERIFICATION=false` (default): no texted codes at all. `send_code` and
+  `check_code` aren't offered to the agent, callers are recognized by their number, profiles are saved with consent only
+  (trust "recognized", never "verified"), and sensitive requests (moving money, account changes) are queued for a
+  specialist, who confirms identity on the callback. The published prompt has no code steps.
 
 ## 1. Public URL
 
@@ -45,7 +46,7 @@ Dashboard: getdial.ai/dashboard/context-mcps, then **Add**:
 - URL `https://<server>/mcp`
 - Static header: `X-Mcp-Secret` = the `MCP_SHARED_SECRET` value
 - Save. Dial runs tool discovery: the server log shows `mcp [no-org] tools/list` and the five tools appear
-  (`lookup_caller`, `send_code`, `check_code`, `save_profile`, `triage_call`). During discovery the agent-number header
+  (`lookup_caller`, `save_profile`, `triage_call`; plus `send_code`, `check_code` when `REQUIRE_VERIFICATION=true`). During discovery the agent-number header
   is missing or a template, so the server answers with no org; that is expected.
 
 (API alternative: `POST https://api.getdial.ai/v1/context-mcps {"name":"rung","url":"https://<server>/mcp", ...headers}`.)
@@ -59,26 +60,31 @@ token is accepted as the secret, org still comes from the agent number).
 3. Edit greeting/rules, check the live prompt preview, click **Publish to Dial**. The server sends
    `PATCH /numbers/<id> {"inboundInstruction": "<rendered docs/inbound-prompt.md>"}`.
 4. Confirm: the response says `"mock": false`; in the Dial dashboard the number's inbound instruction shows the
-   rendered prompt (or `dial number set` / `GET /numbers/<id>` shows it).
+   rendered prompt (or `dial number set` / `GET /numbers/<id>` shows it). With verification off it has no code steps.
 
 ## 6. Hello call (first live milestone)
 
-1. From a teammate's phone, call `+15717200334`.
-2. If that phone is not a seeded caller, the agent asks what's going on. Answer, say yes to saving details, read the
-   code from the dashboard's **Texted codes** panel (SMS likely won't arrive, see above), and give your name.
+1. From a teammate's phone, call `+15717200334` (or the bank's claimed number).
+2. If that phone is not a seeded caller, the agent asks what's going on. Answer, give your name, and say yes when it
+   offers to save your details (no code needed).
 3. Hang up, call again: the agent greets you by first name. **That's the hello call.**
 4. Confirm on the dashboard: the queue shows your item with a brief; after `call.ended` / `call.transcribed` the row gets
    a duration and a transcript.
 
 For the scripted demo, put teammates' real numbers in the bank as returning callers (or let them enroll on a first
-call), then make the three calls: $12 dispute (new caller), fraud in progress $4,200 (returning, verifies by code),
-$10M account opening (returning). Queue order: fraud (116) > $10M (60) > $12 (20).
+call), then make the three calls: $12 dispute (new caller), fraud in progress $4,200 (returning), $10M account opening
+(returning). Queue order: fraud (116) > $10M (60) > $12 (20).
 
-## 7. Real SMS (only if Dial enables it)
+## 7. Turning texted-code verification back on (after 10DLC)
 
-If 10DLC becomes available or the caller's phone is a Dial number: call, trigger `send_code`, confirm the text arrives
-from the org's number reading `Demo Bank: your verification code is ######...` (plain ASCII). To require real SMS,
-set `DEMO_SHOW_CODES=false` (then a failed send makes the agent offer to continue without saving).
+1. Get 10DLC registration done in Dial (or test with a caller whose phone is a Dial number).
+2. Set `REQUIRE_VERIFICATION=true` on the server (Render env) and redeploy. `send_code`/`check_code` reappear in
+   tools/list; sensitive intents need a code from the last 10 minutes; `save_profile` needs a code.
+3. Re-run Dial's tool discovery for the Context MCP (re-save it) so the agent sees the two new tools.
+4. In Setup, click **Publish to Dial** again: the prompt now includes the code steps.
+5. Test: call, save details, the text arrives from the org's number reading
+   `Demo Bank: your verification code is ######...` (plain ASCII). Keep `DEMO_SHOW_CODES=true` so the dashboard's
+   "Texted codes" panel is a fallback if a text doesn't arrive; set it `false` to require real delivery.
 
 ## Troubleshooting
 

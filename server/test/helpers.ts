@@ -37,6 +37,8 @@ export async function boot(env: Record<string, string> = {}): Promise<Harness> {
     NODE_ENV: 'test',
     STORE: 'memory',
     DIAL_WEBHOOK_SECRET: WEBHOOK_SECRET,
+    // Existing suites exercise the texted-code flow; verification-off.test.ts covers the default.
+    REQUIRE_VERIFICATION: 'true',
     DEMO_BANK_EMAIL: BANK_EMAIL,
     DEMO_CLINIC_EMAIL: CLINIC_EMAIL,
     ...env,
