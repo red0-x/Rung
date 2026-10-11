@@ -108,7 +108,8 @@ interface QueueResponse {
 - `POST /mcp/<org.mcp_token>`, or `POST /mcp` with org resolved from `X-Dial-Agent-Number` → org by `dial_number`. Unknown → 401.
 - Dial attaches one Context MCP per account, so production uses `POST /mcp` with static header `X-Mcp-Secret: <MCP_SHARED_SECRET>` (bearer or `/mcp/<MCP_SHARED_SECRET>` also accepted). Required when the secret is set; production won't boot without it. A missing/templated agent number (tool discovery) is allowed with the secret: tools list fine, tool calls return error `org_unknown`.
 - Caller identity only from `X-Dial-User-Number` (E.164; missing / `{{template}}` values = unknown caller).
-- Tools: `lookup_caller()`, `send_code()`, `check_code({code})`, `save_profile({name, consent})`, `triage_call({intent, amount_usd?, summary, caller_name?})`. Shapes per `attachments/RUNG_CONTEXT.md` §4.
+- Tools: `lookup_caller()`, `send_code()`, `check_code({code})`, `save_profile({name, consent, facts?})`, `update_profile({occupation?, employer?, household?, location?, language?, preferences?, note?})`, `triage_call({intent, amount_usd?, summary, caller_name?})`. Shapes per `attachments/RUNG_CONTEXT.md` §4.
+- `update_profile` merges into `profiles.facts` (jsonb): named fields overwrite, `note` appends (deduped, newest 20). Errors `no_profile` (caller never agreed to be remembered), `nothing_to_save`. Re-saving a profile never wipes facts. Facts are per org like everything else.
 - `lookup_caller()` returns (additive; one round of parallel store reads, no LLM):
   ```ts
   { known: boolean;                       // has a saved profile at this org
@@ -118,11 +119,14 @@ interface QueueResponse {
     recent_issues: {summary, intent, intent_label, when, status}[];   // newest 3
     call_count: number;                    // all queue items for this number at this org
     previous_calls: number|null;           // = call_count when there is no profile, null when known
+    facts: {occupation?, employer?, household?, location?, language?, preferences?, notes?:{text,at}[]}|null;   // saved callers only
+    missing_facts: ('occupation'|'household')[]|null;   // what the agent may still ask once; null when no profile
     has_open_request: boolean;
     open_request: {summary, status:'queued'|'in_progress', position:number|null, estimated_callback_minutes:number|null}|null;
     org_name: string; guidance: string }   // guidance = what to say next (welcome back / confirm name / callback #N, ~M min)
   ```
-- `triage_call` returns `{queued, position, estimated_callback_minutes, priority, name_missing, say_to_caller, guidance}`. `name_missing: true` when the item has no name (no saved profile, no `caller_name`): it is still queued, and guidance tells the agent to ask for the name and call `triage_call` again with `caller_name` (a repeat within 3 min updates the same item, keeps `createdAt`, never erases a name). `caller_name` is whitespace-normalized and title-cased only if all lower/upper case. `save_profile` also backfills the name on the caller's open item if it has none.
+- `triage_call` also texts the caller once after the item is saved, from the org's number: minutes, clock time in `settings.timezone`, queue position, STOP line, no amounts or issue details. The server stores the promise (`eta_minutes`, `eta_at`, `sms_status`, `sms_sent_at`, `sms_error`). A repeat `triage_call` never re-texts or moves the promised time. A refused text (no 10DLC, no credit) never fails the call: `sms_status='failed'`, `confirmation_text_sent:false`, and `say_to_caller` leaves out the text line.
+- `triage_call` returns `{queued, position, estimated_callback_minutes, estimated_callback_at, confirmation_text_sent, priority, name_missing, say_to_caller, guidance}`. `name_missing: true` when the item has no name (no saved profile, no `caller_name`): it is still queued, and guidance tells the agent to ask for the name and call `triage_call` again with `caller_name` (a repeat within 3 min updates the same item, keeps `createdAt`, never erases a name). `caller_name` is whitespace-normalized and title-cased only if all lower/upper case. `save_profile` also backfills the name on the caller's open item if it has none.
 - `REQUIRE_VERIFICATION` (server env, default **false**): when false, `send_code`/`check_code` are not listed, `save_profile` needs consent only, `triage_call` never returns `verification_required`, trust is only `recognized`/`new`, and `platform.demoShowCodes` is false. When true: texted-code flow as above.
 
 ## Webhooks

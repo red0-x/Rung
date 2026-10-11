@@ -46,6 +46,7 @@ export function defaultSettings(orgName = 'us'): OrgSettings {
   return {
     greeting: `Thanks for calling ${orgName}.`,
     tone: 'warm, brief, plain English',
+    timezone: 'America/Los_Angeles',
     ...defaultRules(),
     avgHandleMin: 4,
     repsOnShift: 1,

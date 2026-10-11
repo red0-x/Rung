@@ -16,6 +16,19 @@ export const settingsPatchSchema = z
   .object({
     greeting: z.string().trim().min(1).max(300),
     tone: z.string().trim().min(1).max(200),
+    timezone: z
+      .string()
+      .trim()
+      .min(1)
+      .max(60)
+      .refine((tz) => {
+        try {
+          new Intl.DateTimeFormat('en-US', { timeZone: tz });
+          return true;
+        } catch {
+          return false;
+        }
+      }, 'unknown IANA time zone'),
     intents: z.partialRecord(intentKey, intentRule.partial()),
     valueTiers: z
       .array(z.object({ minUsd: z.number().min(0), points: z.number().int().min(0).max(1000) }))

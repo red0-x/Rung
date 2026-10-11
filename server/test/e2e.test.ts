@@ -71,14 +71,14 @@ describe('MCP routing and security', () => {
 
       // Discovery: no / templated agent number -> tools listed, tool calls fail politely.
       const d = await openSimCall({ baseUrl: s.base, phone: '{{user_number}}', agentNumber: '{{agent_number}}', secret: 'shh' });
-      expect((await d.tools()).sort()).toEqual(['check_code', 'lookup_caller', 'save_profile', 'send_code', 'triage_call']);
+      expect((await d.tools()).sort()).toEqual(['check_code', 'lookup_caller', 'save_profile', 'send_code', 'triage_call', 'update_profile']);
       const r = await d.call('lookup_caller');
       expect(r).toMatchObject({ isError: true, data: { error: 'org_unknown' } });
       await d.close();
 
       // With the secret, an unclaimed (valid) number lists tools too; tool calls answer org_unknown.
       const u = await openSimCall({ baseUrl: s.base, phone: MARIA, agentNumber: '+15550009999', secret: 'shh' });
-      expect(await u.tools()).toHaveLength(5);
+      expect(await u.tools()).toHaveLength(6);
       expect((await u.call('lookup_caller')).data.error).toBe('org_unknown');
       await u.close();
 
@@ -94,7 +94,7 @@ describe('MCP routing and security', () => {
 
   it('exposes exactly the five tools, none of which take a phone number', async () => {
     const call = await as(NEW_CALLER);
-    expect((await call.tools()).sort()).toEqual(['check_code', 'lookup_caller', 'save_profile', 'send_code', 'triage_call']);
+    expect((await call.tools()).sort()).toEqual(['check_code', 'lookup_caller', 'save_profile', 'send_code', 'triage_call', 'update_profile']);
     await call.close();
   });
 
