@@ -314,6 +314,16 @@ export function createSupabaseStore(sb: SupabaseClient): Store {
       throw new Error(`Supabase: ${error.message}`);
     },
 
+    async forgetCaller(orgId, phone) {
+      const [p, v, q] = await Promise.all([
+        sb.from('profiles').delete().eq('org_id', orgId).eq('phone', phone).select('phone'),
+        sb.from('verifications').delete().eq('org_id', orgId).eq('phone', phone),
+        sb.from('queue_items').delete().eq('org_id', orgId).eq('phone', phone).select('id'),
+      ]);
+      must(v);
+      return { profile: (must(p) ?? []).length > 0, items: (must(q) ?? []).length };
+    },
+
     async resetOrgData(orgId) {
       must(await sb.from('queue_items').delete().eq('org_id', orgId));
       must(await sb.from('verifications').delete().eq('org_id', orgId));

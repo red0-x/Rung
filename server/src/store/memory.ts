@@ -156,6 +156,14 @@ export function createMemoryStore(): Store {
       return true;
     },
 
+    async forgetCaller(orgId, phone) {
+      const profile = profiles.delete(key(orgId, phone));
+      verifications.delete(key(orgId, phone));
+      let n = 0;
+      for (const [k, i] of items) if (i.orgId === orgId && i.phone === phone && items.delete(k)) n++;
+      return { profile, items: n };
+    },
+
     async resetOrgData(orgId) {
       for (const [k, p] of profiles) if (p.orgId === orgId) profiles.delete(k);
       for (const [k, v] of verifications) if (v.orgId === orgId) verifications.delete(k);

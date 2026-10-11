@@ -16,6 +16,7 @@ Rep view of the queue. Reads `GET /api/queue` ([[project/contracts#HTTP API (bac
 - [x] Deployed on Vercel (same origin) — 2026-10-11
 - [x] Queue redesign, Cancel/Reopen, Callers + History tables — 2026-10-11
 - [x] Multi-rep: Take next, "<rep> · on call" rows, teammate briefs view-only, reps-online pill — 2026-10-11
+- [x] Callers row menu → Forget caller… (admin, confirm drawer) — 2026-10-11
 - [x] Sidebar org switcher for people in several orgs — 2026-10-11
 
 - [x] Keewano Insights: own `/insights` tab, "Powered by Keewano" (`GET /api/insights`); moved out of the queue rail; demo run of show in [[project/demo-notes]] — 2026-10-11

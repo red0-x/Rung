@@ -2976,3 +2976,26 @@ code {
 .sb-org-select option {
   color: #111;
 }
+
+/* Forget caller: destructive, admin only. */
+.p-menu-list button.is-danger {
+  color: #ff7a7a;
+}
+.forget p {
+  margin: 0 0 0.9rem;
+  line-height: 1.5;
+}
+.forget-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1.4rem;
+}
+.btn.btn-danger {
+  background: #c62828;
+  border-color: #c62828;
+  color: #fff;
+}
+.btn.btn-danger:hover:not(:disabled) {
+  background: #a51f1f;
+}

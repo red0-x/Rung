@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, errorText } from '../api';
+import { useAuth } from '../auth';
+import { Drawer } from '../components/Drawer';
 import { IntentIcon } from '../components/Icons';
 import { PageHeader, initials } from '../components/Shell';
 import { Toast, useToast } from '../components/Toast';
@@ -51,14 +53,17 @@ export default function CallersPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const { toast, show, hide } = useToast();
+  const isAdmin = useAuth().me?.role === 'admin';
+  const [forgetting, setForgetting] = useState<CallerRow | null>(null);
+  const [gone, setGone] = useState<Set<string>>(new Set());
 
   const needle = q.trim().toLowerCase();
   const cList = useMemo(
     () =>
       (callers.data?.callers ?? []).filter(
-        (c) => !needle || [c.name, c.lastIntentLabel, c.lastSummary, c.phoneMasked].some((v) => v?.toLowerCase().includes(needle)),
+        (c) => !gone.has(c.key) && (!needle || [c.name, c.lastIntentLabel, c.lastSummary, c.phoneMasked].some((v) => v?.toLowerCase().includes(needle))),
       ),
-    [callers.data, needle],
+    [callers.data, needle, gone],
   );
   const hList = useMemo(
     () =>
@@ -85,6 +90,23 @@ export default function CallersPage() {
         return n;
       });
       show({ text: `Could not reopen. ${errorText(err)}`, tone: 'error' });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function forget(c: CallerRow) {
+    setBusy(c.key);
+    try {
+      const r = await api.forgetCaller(c.key);
+      setGone((s) => new Set(s).add(c.key));
+      setForgetting(null);
+      const n = r.removed.items;
+      show({ text: `Forgot ${c.name ?? c.phoneMasked}${n ? ` and ${n} ${n === 1 ? 'call' : 'calls'}` : ''}. Their next call starts fresh.` });
+      callers.refresh();
+      history.refresh();
+    } catch (err) {
+      show({ text: `Could not forget this caller. ${errorText(err)}`, tone: 'error' });
     } finally {
       setBusy(null);
     }
@@ -223,6 +245,7 @@ export default function CallersPage() {
                           items={[
                             { label: 'View history', run: () => find(c.name ?? c.phoneMasked, 'history') },
                             ...(c.openStatus ? [{ label: 'Go to queue', run: () => navigate('/queue') }] : []),
+                            ...(isAdmin ? [{ label: 'Forget caller…', run: () => setForgetting(c), danger: true }] : []),
                           ]}
                         />
                       </span>
@@ -307,12 +330,34 @@ export default function CallersPage() {
         <p className="muted small t-foot">Updated {ago(Date.now() - Math.max(callers.fetchedAt, history.fetchedAt))}</p>
       )}
       <Toast toast={toast} onHide={hide} />
+      <Drawer open={!!forgetting} title="Forget this caller?" onClose={() => setForgetting(null)}>
+        {forgetting && (
+          <div className="forget">
+            <p>
+              <b>{forgetting.name ?? 'Unknown caller'}</b> <span className="muted tnum">{forgetting.phoneMasked}</span>
+            </p>
+            <p>
+              Deletes their saved name and details, {forgetting.callCount} {forgetting.callCount === 1 ? 'call' : 'calls'} with transcripts
+              {forgetting.openStatus ? ', and their open callback' : ''}. The next call from this number is treated as a first call.
+            </p>
+            <p className="muted">Only this company. Other callers are not affected. This can't be undone.</p>
+            <div className="forget-actions">
+              <button type="button" className="btn" onClick={() => setForgetting(null)}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-danger" disabled={busy === forgetting.key} onClick={() => void forget(forgetting)}>
+                {busy === forgetting.key ? 'Forgetting…' : 'Forget caller'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }
 
 /** Round kebab button with a small menu. Click outside or Esc closes; focus returns to the button. */
-function RowMenu({ id, open, setOpen, items }: { id: string; open: boolean; setOpen: (o: boolean) => void; items: Array<{ label: string; run: () => void }> }) {
+function RowMenu({ id, open, setOpen, items }: { id: string; open: boolean; setOpen: (o: boolean) => void; items: Array<{ label: string; run: () => void; danger?: boolean }> }) {
   const btn = useRef<HTMLButtonElement>(null);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -360,6 +405,7 @@ function RowMenu({ id, open, setOpen, items }: { id: string; open: boolean; setO
               key={it.label}
               type="button"
               role="menuitem"
+              className={it.danger ? 'is-danger' : undefined}
               onClick={() => {
                 setOpen(false);
                 it.run();

@@ -85,6 +85,7 @@ Tier labels: critical "Critical", high "High", normal "Normal", low "Low".
 | POST | `/api/queue/:id/release` | | Cancel a callback: `in_progress` → `queued`, `claimedAt`/`claimedBy` cleared, `createdAt` kept (caller keeps their place). `{ok:true}`; `409 not_in_progress`; `403 not_claimer` (as Done) |
 | POST | `/api/queue/:id/reopen` | | Undo Done: `done` → `queued`, `doneAt` cleared, `createdAt` kept. `{ok:true}`; `409 not_done` |
 | GET | `/api/callers` | | `{callers: CallerRow[]}` everyone who has a profile OR any queue item at this org, newest activity first |
+| DELETE | `/api/callers/:key` | | Admin: forget one caller at this org (`key` from `/callers`): profile, verification, every queue item + transcript. `{ok:true, removed:{profile:boolean, items:number}}`; `403 admin_only`; `404` unknown/other org. Next call is a first call |
 | GET | `/api/history?limit=50` | | `{items: QueueItemView[]}` `done` items, newest `doneAt` first, any age (limit ≤ 200, default 50) |
 | GET | `/api/profiles` | | `{profiles:[{name, phoneMasked, createdAt, verified:boolean}]}` |
 | GET | `/api/dev/codes` | | `{codes:[{phoneMasked, code, expiresAt}]}` this org only; `404` unless `demoShowCodes` and `requireVerification` |

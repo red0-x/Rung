@@ -63,6 +63,9 @@ export interface Store {
   /** Webhook dedupe (global). Returns true the first time an event id is seen. */
   markEventSeen(eventId: string): Promise<boolean>;
 
+  /** Forget one number at one org: profile, verification and every queue item (with transcripts). Returns what was removed. */
+  forgetCaller(orgId: string, phone: string): Promise<{ profile: boolean; items: number }>;
+
   /** Dev/test: wipe one org's callers, verifications and queue (org row, members and settings stay). */
   resetOrgData(orgId: string): Promise<void>;
 }

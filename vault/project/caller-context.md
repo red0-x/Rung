@@ -107,7 +107,7 @@ Tag for anything that changes a tool response: `#contract-change`.
 5. **Resolved outcome.** When a rep marks an item `done`, nothing captures the outcome. Proposal: optional `resolution` note on `done`, surfaced as `last_issue.outcome` ("refunded", "card replaced").
 6. **Transcripts are stored but never read back.** Deliberately: tools must stay fast and no LLM runs inside them. Option: a summarizer job after `call.transcribed` that rewrites a durable `profile.notes` (2 lines), read by `lookup_caller`. Stretch only.
 7. **Call to item matching is heuristic** (number + time window). Two calls from one number inside a minute can cross-link. Acceptable for the demo. If Dial ever exposes a call id mid-call, key on it.
-8. **Retention and deletion.** No "forget me" path yet. Needed for the privacy story: a delete-by-`(org, phone)` route that removes profile, verifications, and queue items.
+8. **Retention and deletion.** ✅ 2026-10-11: admin **Forget caller…** on Callers (`DELETE /api/callers/:key`). Keewano events already sent are not recalled. Was: No "forget me" path yet. Needed for the privacy story: a delete-by-`(org, phone)` route that removes profile, verifications, and queue items.
 
 ## 8. Demo checks (what to verify on a real phone)
 

@@ -113,6 +113,9 @@ export const api = {
   release: (id: string) => request<{ ok: true }>(`/api/queue/${enc(id)}/release`, { method: 'POST' }),
   reopen: (id: string) => request<{ ok: true }>(`/api/queue/${enc(id)}/reopen`, { method: 'POST' }),
   callers: () => request<CallersResponse>('/api/callers'),
+  /** Admin: forget everything this org knows about one caller (profile, requests, transcripts). */
+  forgetCaller: (key: string) =>
+    request<{ ok: true; removed: { profile: boolean; items: number } }>(`/api/callers/${enc(key)}`, { method: 'DELETE' }),
   history: (limit = 50) => request<HistoryResponse>(`/api/history?limit=${limit}`),
   insights: (refresh = false) => request<InsightsResponse>(`/api/insights${refresh ? '?refresh=1' : ''}`),
   profiles: () => request<ProfilesResponse>('/api/profiles'),
@@ -136,6 +139,7 @@ export function errorText(err: unknown): string {
       not_claimer: "That's a teammate's callback. Only they or an admin can finish or cancel it.",
       at_capacity: 'Finish your current callback first.',
       not_queued: 'That caller is no longer waiting.',
+      admin_only: 'Only an admin can do that.',
       invalid: 'Some settings are not valid.',
     };
     const base = known[err.code] ?? err.message;

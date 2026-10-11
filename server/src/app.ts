@@ -633,6 +633,29 @@ export function createApp(deps: AppDeps): Express {
     }
   });
 
+  /**
+   * Forget a caller (admin): this org's profile, texted-code state and every request from the number, transcripts included.
+   * Their next call is a first call. Addressed by the opaque row key from /callers so no number travels in the URL.
+   */
+  api.delete('/callers/:key', async (req, res) => {
+    if (L(res).role !== 'admin') {
+      res.status(403).json({ error: 'admin_only' });
+      return;
+    }
+    const org = orgOf(res);
+    const [profiles, items] = await Promise.all([store.listProfiles(org.id), store.listQueueItems(org.id)]);
+    const phone = [...new Set([...profiles.map((p) => p.phone), ...items.map((i) => i.phone)])].find(
+      (ph) => callerKey(org.id, ph) === req.params.key,
+    );
+    if (!phone) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    const removed = await store.forgetCaller(org.id, phone);
+    log(`[${org.slug}] forgot caller ${maskPhone(phone)} (profile=${removed.profile}, items=${removed.items}) by ${L(res).user.email}`);
+    res.json({ ok: true, removed });
+  });
+
   api.get('/profiles', async (_req, res) => {
     const profiles = await store.listProfiles(orgOf(res).id);
     res.json({

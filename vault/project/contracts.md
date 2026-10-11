@@ -1,7 +1,7 @@
 ---
 type: contract
 owner: backend
-version: 5
+version: 6
 ---
 # Contracts (v3 · multi-tenant Rung)
 
@@ -59,6 +59,7 @@ Auth: `Authorization: Bearer <Supabase access token>` (dev: `dev:<email>`). 401 
 - `GET /api/health` (public) · `GET /api/me` · `POST/GET/PATCH /api/org` · `GET /api/numbers` · `POST /api/org/number`
 - `GET|POST /api/prompt-preview` · `POST /api/org/publish` (→ Dial `PATCH /numbers/{id}` `{inboundInstruction}`)
 - `GET /api/queue` · `GET /api/queue/:id/transcript` · `POST /api/queue/:id/callback` (atomic claim; `409 already_claimed`) · `POST /api/queue/next` (take top unclaimed; `204` empty, `409 at_capacity`) · these two are the only places the full number is returned · `POST /api/queue/:id/done` / `release` (`403 not_claimer` unless admin) · `GET /api/queue` adds `me`, `reps[]`, `availableReps`, items `claimedBy`
+- `DELETE /api/callers/:key` (admin): forget one caller at this org (profile, verification, all queue items + transcripts).
 - `GET /api/profiles` · `GET /api/dev/codes` · `GET /api/dev/dial-log` · `POST /api/dev/reset`
 - `POST /webhooks/dial`: HMAC `t=,v1=`, 5 min tolerance, dedupe `X-Dial-Event-ID`, 200 before processing. `call.ended` → org from `data.to`; `call.transcribed` → fetch call, store transcript.
 
