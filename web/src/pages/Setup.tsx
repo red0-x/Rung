@@ -3,6 +3,8 @@ import { ApiError, api, errorText } from '../api';
 import { useAuth } from '../auth';
 import { TIERS, TIER_LABEL, ago } from '../format';
 import { useDebounced, useNow, usePoll } from '../hooks';
+import { PageHeader } from '../components/Shell';
+import { IconInfo } from '../components/Icons';
 import type { DialNumber, Intent, IntentRule, OrgSettings, OrgView, PublishResponse, Tier } from '../types';
 
 const INTENT_ORDER: Intent[] = [
@@ -47,10 +49,10 @@ function CreateOrg() {
   }
 
   return (
-    <div className="page setup-create">
+    <div className="page-pad setup-create">
       <p className="step-num tnum">01</p>
       <h1 className="setup-title">What's your company called?</h1>
-      <p className="muted lead">Your callers hear it in the first line. You can change it later.</p>
+      <p className="muted lead">Callers hear it first.</p>
       <form className="form inline-lg" onSubmit={submit}>
         <input
           className="input-lg"
@@ -150,12 +152,18 @@ function Editor({ org }: { org: OrgView }) {
   const intentKeys = INTENT_ORDER.filter((k) => s.intents[k]);
 
   return (
-    <div className="page setup">
-      <div className="board-head">
-        <h1 className="board-title">Setup</h1>
+    <div className="page-pad setup">
+      <PageHeader
+        title="Setup"
+        sentence={`${org.dialNumber ? `Callers dial ${org.dialNumber}` : 'No number yet'} · ${org.publishedAt ? `published ${ago(Date.now() - org.publishedAt)}` : 'not published'}`}
+        right={
         <div className="save-bar">
-          {saveMsg && <span className={saveMsg.ok ? 'ok' : 'form-error'}>{saveMsg.text}</span>}
-          {dirty && !saveMsg && <span className="muted">Unsaved changes</span>}
+          {saveMsg && (
+            <span key={saveMsg.text} className={`save-msg ${saveMsg.ok ? 'ok' : 'form-error'}`}>
+              {saveMsg.text}
+            </span>
+          )}
+          {dirty && !saveMsg && <span className="save-msg muted">Unsaved</span>}
           <button type="button" className="btn" disabled={!dirty || saving} onClick={() => setDraft(toDraft(org))}>
             Discard
           </button>
@@ -163,18 +171,19 @@ function Editor({ org }: { org: OrgView }) {
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
-      </div>
+        }
+      />
 
       <div className="setup-grid">
         <div className="setup-main">
-          <Step n="01" title="Company">
+          <Step n="01" i={0} title="Company">
             <label className="field">
               <span>Company name</span>
               <input value={draft.name} maxLength={80} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} />
             </label>
           </Step>
 
-          <Step n="02" title="Voice">
+          <Step n="02" i={1} title="Voice">
             <label className="field">
               <span>Greeting, the first line callers hear</span>
               <input value={s.greeting} onChange={(e) => setS('greeting', e.target.value)} />
@@ -185,8 +194,7 @@ function Editor({ org }: { org: OrgView }) {
             </label>
           </Step>
 
-          <Step n="03" title="Ranking rules">
-            <p className="muted">Score = urgency points + value points + aging. Sensitive intents need a verified caller before details are discussed.</p>
+          <Step n="03" i={2} title="Ranking rules" tip="Score = urgency + value + waiting. Verify = caller must pass the text code first.">
             <div className="table-wrap">
               <table className="rules-table">
                 <thead>
@@ -300,15 +308,11 @@ function Editor({ org }: { org: OrgView }) {
             </div>
           </Step>
 
-          <Step n="04" title="Phone number">
+          <Step n="04" i={3} title="Phone number">
             <Numbers org={org} />
           </Step>
 
-          <Step n="05" title="Publish to Dial">
-            <p className="muted">
-              Pushes the prompt on the right to your number's voice agent.
-              {org.publishedAt ? ` Last published ${ago(Date.now() - org.publishedAt)}.` : ' Not published yet.'}
-            </p>
+          <Step n="05" i={4} title="Publish to Dial" tip="Pushes the prompt preview to your number's voice agent.">
             <div className="inline">
               <button type="button" className="btn btn-primary" disabled={publishing || !org.dialNumberId} onClick={() => void publish()}>
                 {publishing ? 'Publishing…' : dirty ? 'Save and publish' : 'Publish to Dial'}
@@ -322,9 +326,15 @@ function Editor({ org }: { org: OrgView }) {
             )}
             {published && (
               <div className="publish-result" role="status">
-                <p className="ok">
-                  Published to {published.number}
-                  {published.mock ? ' (mock: recorded, not sent to Dial)' : ''}.
+                <p className="publish-ok">
+                  <svg className="check-draw" viewBox="0 0 28 28" aria-hidden="true">
+                    <circle cx="14" cy="14" r="13" />
+                    <path d="M8 14.5l4 4L20.5 10" />
+                  </svg>
+                  <span>
+                    Live on <b className="tnum">{published.number}</b>
+                    {published.mock && <span className="muted"> · mock, recorded not sent</span>}
+                  </span>
                 </p>
                 {published.mock && (
                   <div className="request">
@@ -337,8 +347,9 @@ function Editor({ org }: { org: OrgView }) {
               </div>
             )}
 
-            <h3 className="sub-h">Context MCP URL</h3>
-            <p className="muted">Paste into the Dial agent's MCP settings. Treat it like a password.</p>
+            <h3 className="sub-h" data-tip="Paste into the Dial agent's MCP settings. Treat it like a password.">
+              Context MCP URL <IconInfo width={14} height={14} />
+            </h3>
             <CopyField value={org.mcpUrl} />
           </Step>
 
@@ -353,14 +364,21 @@ function Editor({ org }: { org: OrgView }) {
   );
 }
 
-function Step({ n, title, children }: { n: string; title: string; children: ReactNode }) {
+function Step({ n, i, title, tip, children }: { n: string; i: number; title: string; tip?: string; children: ReactNode }) {
   return (
-    <section className="step" aria-labelledby={`step-${n}`}>
+    <section className="step card" aria-labelledby={`step-${n}`} style={{ animationDelay: `${i * 50}ms` }}>
       <p className="step-num tnum" aria-hidden="true">
         {n}
       </p>
       <div className="step-body">
-        <h2 id={`step-${n}`}>{title}</h2>
+        <h2 id={`step-${n}`}>
+          {title}
+          {tip && (
+            <span className="tip-icon" data-tip={tip} tabIndex={0} aria-label={tip}>
+              <IconInfo width={16} height={16} />
+            </span>
+          )}
+        </h2>
         {children}
       </div>
     </section>
@@ -439,10 +457,10 @@ function Numbers({ org }: { org: OrgView }) {
         {org.dialNumber ? (
           <>
             Callers dial <strong className="tnum">{org.dialNumber}</strong>
-            {org.dialNumberMock ? ' (mock number)' : ''}.
+            {org.dialNumberMock ? ' (mock number)' : ''}
           </>
         ) : (
-          'Pick the number your callers will dial.'
+          'Pick a number'
         )}
       </p>
       {error && (
@@ -505,13 +523,13 @@ function PromptPreview({ draft }: { draft: Draft }) {
   }, [debounced]);
 
   return (
-    <section className="prompt-preview" aria-labelledby="pp-h">
+    <section className="prompt-preview card" aria-labelledby="pp-h">
       <div className="pp-head">
-        <h2 id="pp-h">Live prompt preview</h2>
-        <span className="muted">{loading ? 'Updating…' : 'What the voice agent is told'}</span>
+        <h2 id="pp-h">Prompt preview</h2>
+        <span className={`pp-status${loading ? ' is-loading' : ''}`}>{loading ? 'Updating' : 'Live'}</span>
       </div>
       {error && <p className="form-error">{error}</p>}
-      <pre className="code-block pp-body">{prompt ?? (error ? '' : 'Rendering…')}</pre>
+      <pre className={`code-block pp-body${loading && prompt ? ' is-stale' : ''}`}>{prompt ?? (error ? '' : 'Rendering…')}</pre>
     </section>
   );
 }
@@ -529,7 +547,7 @@ function DialLog() {
     .sort((a, b) => b.at - a.at)
     .slice(0, 8);
   return (
-    <section className="step" aria-labelledby="dial-log-h">
+    <section className="step card" aria-labelledby="dial-log-h" style={{ animationDelay: '250ms' }}>
       <p className="step-num tnum" aria-hidden="true">
         ··
       </p>

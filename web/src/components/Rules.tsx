@@ -12,9 +12,8 @@ export function Rules({ settings }: { settings: OrgSettings }) {
   const minutesToOutrank = settings.agingPerMin > 0 ? Math.ceil((highest - lowest + 1) / settings.agingPerMin) : 0;
 
   return (
-    <section aria-labelledby="rules-h" className="panel rules">
-      <h2 id="rules-h">How the order is decided</h2>
-      <p className="muted">Score = urgency + value + waiting. Highest score is called first.</p>
+    <div className="rules">
+      <p className="muted">Score = urgency + value + waiting. Highest score is called back first.</p>
 
       <h3>Urgency</h3>
       <dl>
@@ -54,6 +53,13 @@ export function Rules({ settings }: { settings: OrgSettings }) {
           ? ` After ${minutesToOutrank} minutes even a general question outranks a brand-new emergency, so no one waits forever.`
           : ''}
       </p>
-    </section>
+
+      <h3>Callback estimate</h3>
+      <p>
+        <span className="tnum">{settings.repsOnShift}</span> {settings.repsOnShift === 1 ? 'rep' : 'reps'} on shift at about{' '}
+        <span className="tnum">{settings.avgHandleMin}</span> min a call, so rank #n is called back in roughly n ×{' '}
+        {settings.avgHandleMin} ÷ {settings.repsOnShift} min.
+      </p>
+    </div>
   );
 }

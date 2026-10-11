@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 import { useAuth } from './auth';
-import { Header } from './components/Header';
+import { Shell } from './components/Shell';
 import Landing from './landing/Landing';
 import LoginPage from './pages/Login';
 import QueuePage from './pages/Queue';
+import CallersPage from './pages/Callers';
 import SetupPage from './pages/Setup';
 import { Redirect, linkClick, useLocation } from './router';
 
@@ -19,11 +20,11 @@ export default function App() {
 
   if (path === '/') return <Landing />;
   if (path === '/login') return <LoginPage />;
-  if (path === '/queue' || path === '/setup') return <Protected path={path} />;
+  if (path === '/queue' || path === '/setup' || path === '/callers') return <Protected path={path} />;
   return <NotFound />;
 }
 
-function Protected({ path }: { path: '/queue' | '/setup' }) {
+function Protected({ path }: { path: '/queue' | '/setup' | '/callers' }) {
   const { ready, session, me, meError, refreshMe, signOut } = useAuth();
 
   if (!ready) return <Splash />;
@@ -32,8 +33,7 @@ function Protected({ path }: { path: '/queue' | '/setup' }) {
     if (meError) {
       return (
         <div className="app">
-          <Header path={path} />
-          <div className="page">
+          <div className="page-pad">
             <p className="banner" role="alert">
               Couldn't load your account. {meError}
             </p>
@@ -51,12 +51,11 @@ function Protected({ path }: { path: '/queue' | '/setup' }) {
     }
     return <Splash />;
   }
-  if (path === '/queue' && !me.org) return <Redirect to="/setup" />;
+  if (path !== '/setup' && !me.org) return <Redirect to="/setup" />;
 
   return (
     <div className="app">
-      <Header path={path} />
-      {path === '/queue' ? <QueuePage /> : <SetupPage />}
+      <Shell path={path}>{path === '/queue' ? <QueuePage /> : path === '/callers' ? <CallersPage /> : <SetupPage />}</Shell>
     </div>
   );
 }

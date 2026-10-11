@@ -1,355 +1,367 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, api, apiBase, errorText } from '../api';
 import { useAuth } from '../auth';
-import { Digits } from '../components/Digits';
-import { QueueRow, Transcript, type RowFlag } from '../components/QueueRow';
+import { Detail } from '../components/Detail';
+import { Drawer } from '../components/Drawer';
+import { IconInfo } from '../components/Icons';
+import { ListRow, type RowFlag } from '../components/QueueRow';
+import { CodesCard, Timeline } from '../components/Rail';
 import { Rules } from '../components/Rules';
-import { ago, clock, issueSentence, usd } from '../format';
-import { useNow, usePoll } from '../hooks';
-import type { OrgSettings, QueueItemView, QueueResponse } from '../types';
+import { PageHeader, ReadyPill, greeting } from '../components/Shell';
+import { NextTile, TimeTile, UrgencyTile, WaitingTile } from '../components/Tiles';
+import { BrandLogo } from '../components/BrandLogo';
+import { useNow, usePoll, usePresence } from '../hooks';
+import type { QueueItemView } from '../types';
 import { useFlip } from '../useFlip';
 
 const FLAG_MS = 8000;
+const EXIT_MS = 280;
 
-/** Remembers each caller's last rank so a jump up the queue, or a new arrival, is called out for a few seconds. */
-function useRankFlags(data: QueueResponse | undefined): Record<string, RowFlag> {
-  const prev = useRef<Map<string, number> | null>(null);
+/**
+ * Flags a new arrival, or a caller who overtook someone still waiting, for a few seconds.
+ * Moving up because the person ahead was called back is not news, so it isn't flagged.
+ */
+function useRankFlags(queued: QueueItemView[] | undefined): Record<string, RowFlag> {
+  const prev = useRef<string[] | null>(null);
   const [flags, setFlags] = useState<Record<string, RowFlag>>({});
+  const key = queued?.map((i) => i.id).join(',');
 
   useEffect(() => {
-    if (!data) return;
+    if (!queued) return;
     const before = prev.current;
+    const now = queued.map((i) => i.id);
     if (before) {
       const add: Record<string, RowFlag> = {};
-      for (const item of data.queued) {
-        const was = before.get(item.id);
-        const rank = item.rank ?? 0;
-        if (was === undefined) add[item.id] = { kind: 'new', until: Date.now() + FLAG_MS };
-        else if (rank < was) add[item.id] = { kind: 'up', from: was, until: Date.now() + FLAG_MS };
-      }
+      now.forEach((id, idx) => {
+        const was = before.indexOf(id);
+        if (was === -1) add[id] = { kind: 'new', until: Date.now() + FLAG_MS };
+        else if (before.slice(0, was).some((other) => now.indexOf(other) > idx)) add[id] = { kind: 'up', from: was + 1, until: Date.now() + FLAG_MS };
+      });
       if (Object.keys(add).length) setFlags((f) => ({ ...f, ...add }));
     }
-    prev.current = new Map(data.queued.map((i) => [i.id, i.rank ?? 0]));
-  }, [data]);
+    prev.current = now;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   return flags;
 }
 
 const is404 = (e: unknown) => e instanceof ApiError && e.status === 404;
 
+type Local = { status: 'in_progress' | 'done'; item: QueueItemView; at: number };
+
 export default function QueuePage() {
   const { me } = useAuth();
-  const settings = me?.org?.settings;
+  const org = me?.org;
+  const settings = org?.settings;
   const queue = usePoll(api.queue, 1500);
-  const profiles = usePoll(api.profiles, 5000);
   const codes = usePoll(api.codes, 2000, true, is404);
   const now = useNow(1000);
 
+  // Optimistic moves so Call back / Done respond instantly instead of waiting for the next poll.
+  const [local, setLocal] = useState<Record<string, Local>>({});
   const [phones, setPhones] = useState<Record<string, { phone: string; tel: string }>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const flags = useRankFlags(queue.data);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
+  const data = queue.data;
   // Anchor clocks to the server's clock so a skewed laptop clock doesn't lie.
-  const nowEst = now + (queue.data ? queue.data.now - queue.fetchedAt : 0);
+  const nowEst = now + (data ? data.now - queue.fetchedAt : 0);
 
-  const queued = queue.data?.queued ?? [];
-  const inProgress = queue.data?.inProgress ?? [];
-  const done = queue.data?.done ?? [];
-  const scaleMax = Math.max(150, ...queued.map((i) => i.score.total + 20));
+  const { queued, inProgress, done } = useMemo(() => {
+    if (!data) return { queued: [] as QueueItemView[], inProgress: [] as QueueItemView[], done: [] as QueueItemView[] };
+    const loc = Object.values(local);
+    const q = data.queued.filter((i) => !local[i.id]).map((i, k) => ({ ...i, rank: k + 1 }));
+    const settled = new Set([...data.inProgress, ...data.done].map((i) => i.id));
+    const ip = [
+      ...data.inProgress.filter((i) => local[i.id]?.status !== 'done'),
+      ...loc.filter((l) => l.status === 'in_progress' && !settled.has(l.item.id)).map((l) => ({ ...l.item, status: 'in_progress' as const, claimedAt: l.at })),
+    ];
+    const doneIds = new Set(data.done.map((i) => i.id));
+    const d = [
+      ...loc.filter((l) => l.status === 'done' && !doneIds.has(l.item.id)).map((l) => ({ ...l.item, status: 'done' as const, doneAt: l.at })),
+      ...data.done,
+    ];
+    return { queued: q, inProgress: ip, done: d };
+  }, [data, local]);
+
+  // Drop optimistic entries once the server agrees (or after 20 s).
+  useEffect(() => {
+    if (!data) return;
+    setLocal((cur) => {
+      const ip = new Set(data.inProgress.map((i) => i.id));
+      const dn = new Set(data.done.map((i) => i.id));
+      let changed = false;
+      const next: Record<string, Local> = {};
+      for (const [id, l] of Object.entries(cur)) {
+        const settled = l.status === 'done' ? dn.has(id) : ip.has(id) || dn.has(id);
+        if (settled || Date.now() - l.at > 20_000) {
+          changed = true;
+          continue;
+        }
+        next[id] = l;
+      }
+      return changed ? next : cur;
+    });
+  }, [data]);
+
+  const flags = useRankFlags(data ? queued : undefined);
+  const rows = usePresence(queued, (i) => i.id, EXIT_MS);
+  const calls = usePresence(inProgress, (i) => i.id, EXIT_MS);
+  const scaleMax = Math.max(150, ...[...queued, ...inProgress].map((i) => i.score.total + 20));
 
   const listRef = useRef<HTMLOListElement>(null);
   useFlip(listRef, queued.map((i) => i.id).join(','));
 
-  const longestMs = useMemo(
-    () => (queued.length ? Math.max(...queued.map((i) => nowEst - i.createdAt)) : 0),
-    [queued, nowEst],
+  // Selection: stable across polls and reorders; falls back to #1 when the selected caller leaves.
+  const order = useMemo(() => [...inProgress, ...queued], [inProgress, queued]);
+  const selected = order.find((i) => i.id === selectedId) ?? queued[0] ?? inProgress[0];
+  useEffect(() => {
+    if (selected && selected.id !== selectedId) setSelectedId(selected.id);
+  }, [selected, selectedId]);
+
+  const claim = useCallback(
+    async (item: QueueItemView) => {
+      setBusy(item.id);
+      setActionError(null);
+      try {
+        const res = await api.callback(item.id);
+        setPhones((p) => ({ ...p, [item.id]: res }));
+        setLocal((l) => ({ ...l, [item.id]: { status: 'in_progress', item, at: Date.now() } }));
+        setSelectedId(item.id);
+        queue.refresh();
+      } catch (err) {
+        setActionError(`Could not start the callback. ${errorText(err)}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [queue],
   );
 
-  async function claim(id: string) {
-    setBusy(id);
-    setActionError(null);
-    try {
-      const res = await api.callback(id);
-      setPhones((p) => ({ ...p, [id]: res }));
-      queue.refresh();
-    } catch (err) {
-      setActionError(`Could not start the callback. ${errorText(err)}`);
-    } finally {
-      setBusy(null);
-    }
-  }
+  const finish = useCallback(
+    async (item: QueueItemView) => {
+      setBusy(item.id);
+      setActionError(null);
+      try {
+        await api.done(item.id);
+        setLocal((l) => ({ ...l, [item.id]: { status: 'done', item, at: Date.now() } }));
+        queue.refresh();
+      } catch (err) {
+        setActionError(`Could not mark the call done. ${errorText(err)}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [queue],
+  );
 
-  async function finish(id: string) {
-    setActionError(null);
-    try {
-      await api.done(id);
-      queue.refresh();
-    } catch (err) {
-      setActionError(`Could not mark the call done. ${errorText(err)}`);
-    }
-  }
+  // Keyboard: up/down moves the selection, Enter calls back. Instant, no animation.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.closest('input, textarea, select, [contenteditable]') || rulesOpen)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (!order.length) return;
+        e.preventDefault();
+        const idx = Math.max(0, order.findIndex((i) => i.id === selected?.id));
+        const next = order[Math.min(order.length - 1, Math.max(0, idx + (e.key === 'ArrowDown' ? 1 : -1)))]!;
+        setSelectedId(next.id);
+        document.querySelector(`[data-id="${CSS.escape(next.id)}"]`)?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && !(t && t.closest('button, a'))) {
+        if (selected && selected.status === 'queued' && !busy) {
+          e.preventDefault();
+          void claim(selected);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [order, selected, busy, claim, rulesOpen]);
+
+  const longestMin = queued.length ? Math.floor(Math.max(...queued.map((i) => nowEst - i.createdAt)) / 60_000) : 0;
+  const sentence = !data
+    ? ' '
+    : queued.length === 0
+      ? inProgress.length
+        ? `No one waiting. ${inProgress.length} on a call.`
+        : 'No one waiting. Your queue is clear.'
+      : `${queued.length} ${queued.length === 1 ? 'caller' : 'callers'} waiting. Longest wait ${longestMin < 1 ? 'under a minute' : `${longestMin} min`}.`;
 
   const agingPerMin = settings?.agingPerMin ?? 2;
   const agingCap = settings?.agingCap ?? 150;
-  const handle = settings?.avgHandleMin ?? 4;
-  const reps = Math.max(1, settings?.repsOnShift ?? 1);
-  const eta = (rank: number | null) => Math.max(1, Math.ceil(((rank ?? 1) * handle) / reps));
-
-  const status = !queue.data
-    ? queue.error
-      ? 'Waiting for the server…'
-      : 'Connecting…'
-    : queued.length === 0
-      ? 'No one is waiting.'
-      : `${queued.length} ${queued.length === 1 ? 'caller' : 'callers'} waiting · longest ${clock(longestMs)}`;
 
   return (
-    <div className="page">
-      <div className="board-head">
-        <h1 className="board-title">Callbacks</h1>
-        <p className="board-status" aria-live="polite">
-          <span className={`live${queue.error ? ' down' : ''}`}>
-            <i className="dot" aria-hidden="true" />
-            {queue.error ? 'Offline' : 'Live'}
-          </span>
-          <span className="tnum">{status}</span>
-        </p>
-      </div>
+    <div className="queue-page">
+      <div className="q-main">
+        <PageHeader title={`${greeting()}, ${org?.name ?? 'there'}`} sentence={sentence} right={<ReadyPill offline={!!queue.error} />} />
 
-      {queue.error && (
-        <p className="banner" role="alert">
-          {queue.error instanceof ApiError && queue.error.code !== 'network'
-            ? `The server returned an error: ${errorText(queue.error)}`
-            : `Can't reach the server at ${apiBase}. Showing the last data and retrying.`}
-        </p>
-      )}
-      {actionError && (
-        <p className="banner" role="alert">
-          {actionError}
-        </p>
-      )}
+        {queue.error && (
+          <p className="banner" role="alert">
+            {queue.error instanceof ApiError && queue.error.code !== 'network'
+              ? `Server error: ${errorText(queue.error)}`
+              : `Can't reach ${apiBase}. Retrying.`}
+          </p>
+        )}
+        {actionError && (
+          <p className="banner" role="alert">
+            {actionError}
+          </p>
+        )}
 
-      {queue.data && <Stats data={queue.data} longestMs={longestMs} />}
-
-      <div className="board">
-        <div className="main-col">
-          <section aria-labelledby="waiting-h">
-            <h2 id="waiting-h">Waiting</h2>
-            {queue.data && queued.length === 0 ? (
-              <div className="empty">
-                <p className="empty-big">Nobody on hold.</p>
-                <p>
-                  Callers appear here the moment they finish talking to the voice agent, ranked, with a brief already
-                  written. {me?.org?.dialNumber ? `Call ${me.org.dialNumber} to try it.` : 'Claim a number in Setup to start taking calls.'}
-                </p>
-              </div>
-            ) : (
-              <ol className="rows" ref={listRef}>
-                {queued.map((item) => (
-                  <QueueRow
-                    key={item.id}
-                    item={item}
-                    nowEst={nowEst}
-                    agingPerMin={agingPerMin}
-                    agingCap={agingCap}
-                    scaleMax={scaleMax}
-                    etaMin={eta(item.rank)}
-                    flag={flags[item.id]}
-                    busy={busy === item.id}
-                    onClaim={claim}
-                  />
-                ))}
-              </ol>
-            )}
-          </section>
-
-          {inProgress.length > 0 && (
-            <section aria-labelledby="talk-h">
-              <h2 id="talk-h">On a call</h2>
-              <ul className="talks">
-                {inProgress.map((item) => (
-                  <InProgress key={item.id} item={item} phone={phones[item.id]} nowEst={nowEst} onDone={finish} />
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {done.length > 0 && (
-            <section aria-labelledby="done-h">
-              <h2 id="done-h">Handled recently</h2>
-              <ul className="done-list">
-                {done.map((item) => (
-                  <li key={item.id}>
-                    <span className="done-name">{item.name ?? 'Unknown caller'}</span>
-                    <span className="muted">{issueSentence(item)}</span>
-                    <span className="done-saved tnum">{item.savedMin} min returned</span>
-                    <span className="muted tnum">{item.doneAt ? ago(nowEst - item.doneAt) : ''}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+        <div className="tiles">
+          {data ? (
+            <>
+              <TimeTile t={data.timeSaved} />
+              <WaitingTile queued={queued} nowEst={nowEst} />
+              <UrgencyTile queued={queued} />
+              <NextTile next={queued[0]} nowEst={nowEst} settings={settings} baselineHoldMin={data.timeSaved.baselineHoldMin} />
+            </>
+          ) : (
+            [0, 1, 2, 3].map((i) => <div key={i} className={`tile sk-tile${i === 0 ? ' tile-cobalt' : ''}`} />)
           )}
         </div>
 
-        <aside className="side-col">
-          {queue.data && <TimeSaved t={queue.data.timeSaved} />}
+        <div className={`md${sheetOpen ? ' sheet-open' : ''}`}>
+          <section className="md-list" aria-labelledby="list-h">
+            <div className="section-head">
+              <h2 id="list-h">Callback queue</h2>
+              <button type="button" className="ghost-btn" onClick={() => setRulesOpen(true)}>
+                <IconInfo /> How ranking works
+              </button>
+            </div>
 
-          {codes.data && !is404(codes.error) && (
-            <section aria-labelledby="codes-h" className="panel codes">
-              <h2 id="codes-h">Texted codes</h2>
-              <p className="muted">Demo fallback, in case a text doesn't arrive on stage.</p>
-              {codes.data.codes.length === 0 ? (
-                <p className="muted">No codes sent yet.</p>
-              ) : (
-                <ul>
-                  {codes.data.codes.map((c) => (
-                    <li key={c.phoneMasked + c.code}>
-                      <span className="phone tnum">{c.phoneMasked}</span>
-                      <span className="code">
-                        <Digits text={c.code} />
-                      </span>
-                      <span className="muted tnum">
-                        {c.expiresAt > nowEst ? `expires in ${clock(c.expiresAt - nowEst)}` : 'expired'}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-
-          {settings && <Rules settings={settings} />}
-
-          {settings && <Capacity settings={settings} />}
-
-          <section aria-labelledby="saved-h" className="panel">
-            <h2 id="saved-h">Remembered callers</h2>
-            {(profiles.data?.profiles.length ?? 0) === 0 ? (
-              <p className="muted">Nobody has saved their details yet.</p>
+            {!data ? (
+              <ListSkeleton />
+            ) : order.length === 0 && rows.length === 0 && calls.length === 0 ? (
+              <div className="empty">
+                <span className="empty-mark" aria-hidden="true">
+                  <BrandLogo collapsed size={44} />
+                </span>
+                <p className="empty-title">No one waiting.</p>
+                <p className="muted">Your queue is clear.</p>
+              </div>
             ) : (
-              <ul className="saved-list">
-                {profiles.data!.profiles.map((p) => (
-                  <li key={p.phoneMasked + p.name}>
-                    <span>
-                      <strong>{p.name}</strong> <span className="phone tnum">{p.phoneMasked}</span>
-                    </span>
-                    <span className={`trust trust-${p.verified ? 'verified' : 'new'}`}>
-                      {p.verified ? 'Verified' : 'Unverified'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <>
+                {calls.length > 0 && (
+                  <ul className="list calls" aria-label="On a call">
+                    {calls.map(({ item, key, leaving }) => (
+                      <ListRow
+                        key={key}
+                        item={item}
+                        nowEst={nowEst}
+                        agingPerMin={agingPerMin}
+                        agingCap={agingCap}
+                        selected={selected?.id === item.id}
+                        leaving={leaving}
+                        onSelect={(id) => {
+                          setSelectedId(id);
+                          setSheetOpen(true);
+                        }}
+                      />
+                    ))}
+                  </ul>
+                )}
+                <ol className="list" ref={listRef} aria-label="Waiting, highest priority first">
+                  {rows.map(({ item, key, leaving }) => (
+                    <ListRow
+                      key={key}
+                      item={item}
+                      nowEst={nowEst}
+                      agingPerMin={agingPerMin}
+                      agingCap={agingCap}
+                      flag={flags[item.id]}
+                      selected={selected?.id === item.id}
+                      leaving={leaving}
+                      onSelect={(id) => {
+                        setSelectedId(id);
+                        setSheetOpen(true);
+                      }}
+                    />
+                  ))}
+                </ol>
+                {rows.length === 0 && <p className="list-clear muted">No one else waiting.</p>}
+              </>
             )}
           </section>
-        </aside>
+
+          <button type="button" className="sheet-backdrop" aria-label="Close details" tabIndex={-1} onClick={() => setSheetOpen(false)} />
+          <section className="detail card-sel" aria-label="Caller brief" aria-live="polite">
+            {!data ? (
+              <DetailSkeleton />
+            ) : selected ? (
+              <div key={selected.id} className="detail-fade">
+                <Detail
+                  item={selected}
+                  nowEst={nowEst}
+                  agingPerMin={agingPerMin}
+                  agingCap={agingCap}
+                  scaleMax={scaleMax}
+                  phone={phones[selected.id]}
+                  busy={busy === selected.id}
+                  onCallBack={claim}
+                  onDone={finish}
+                  onClose={() => setSheetOpen(false)}
+                />
+              </div>
+            ) : (
+              <div className="detail-empty">
+                <p className="eyebrow">Caller brief</p>
+                <p className="muted">Briefs appear here when someone calls.</p>
+              </div>
+            )}
+          </section>
+        </div>
       </div>
+
+      <aside className="q-rail" aria-label="Today">
+        {codes.data && !is404(codes.error) && <CodesCard codes={codes.data.codes} nowEst={nowEst} />}
+        {data ? <Timeline items={[...queued, ...inProgress, ...done]} /> : <div className="card sk-card" />}
+      </aside>
+
+      <Drawer open={rulesOpen} title="How ranking works" onClose={() => setRulesOpen(false)}>
+        {settings && <Rules settings={settings} />}
+      </Drawer>
     </div>
   );
 }
 
-function Stats({ data, longestMs }: { data: QueueResponse; longestMs: number }) {
-  const s = data.stats;
+function ListSkeleton() {
   return (
-    <dl className="stats">
-      <div>
-        <dt>Waiting</dt>
-        <dd className="tnum">{s.waiting}</dd>
-      </div>
-      <div>
-        <dt>On a call</dt>
-        <dd className="tnum">{s.inProgress}</dd>
-      </div>
-      <div>
-        <dt>Longest wait</dt>
-        <dd className="tnum">{data.queued.length ? clock(longestMs) : `${s.longestWaitMin}m`}</dd>
-      </div>
-      <div>
-        <dt>Average wait</dt>
-        <dd className="tnum">{s.avgWaitMin}m</dd>
-      </div>
-    </dl>
+    <ol className="list" aria-busy="true" aria-label="Loading queue">
+      {[0, 1, 2].map((i) => (
+        <li key={i} className="lrow-wrap">
+          <div className="lrow sk-row" style={{ animationDelay: `${i * 120}ms` }}>
+            <span className="sk sk-rank" />
+            <span className="sk sk-avatar" />
+            <span className="lrow-main">
+              <span className="sk sk-name" />
+              <span className="sk sk-line" />
+            </span>
+            <span className="sk sk-pill" />
+          </div>
+        </li>
+      ))}
+    </ol>
   );
 }
 
-function TimeSaved({ t }: { t: QueueResponse['timeSaved'] }) {
+function DetailSkeleton() {
   return (
-    <section aria-labelledby="saved-time-h" className="panel time-saved">
-      <h2 id="saved-time-h" className="eyebrow">
-        Time returned today
-      </h2>
-      <p className="ts-big tnum">
-        {t.totalMin.toLocaleString('en-US')}
-        <span className="ts-unit">min</span>
-      </p>
-      <p className="ts-sub tnum">
-        given back to {t.callers} {t.callers === 1 ? 'caller' : 'callers'}
-        {t.returningCallers > 0 ? `, ${t.returningCallers} returning` : ''}
-      </p>
-      <p className="ts-formula">{t.formula}</p>
-      <p className="ts-math tnum">
-        {t.callers} × {t.baselineHoldMin} + {t.returningCallers} × {t.reexplainMin} ={' '}
-        {t.callers * t.baselineHoldMin + t.returningCallers * t.reexplainMin} min
-      </p>
-    </section>
-  );
-}
-
-function Capacity({ settings }: { settings: OrgSettings }) {
-  return (
-    <section aria-labelledby="cap-h" className="panel">
-      <h2 id="cap-h">Callback estimate</h2>
-      <p>
-        <span className="tnum">{settings.repsOnShift}</span> {settings.repsOnShift === 1 ? 'rep' : 'reps'} on shift, about{' '}
-        <span className="tnum">{settings.avgHandleMin}</span> min per call. Rank × handle time ÷ reps.
-      </p>
-    </section>
-  );
-}
-
-function InProgress({
-  item,
-  phone,
-  nowEst,
-  onDone,
-}: {
-  item: QueueItemView;
-  phone?: { phone: string; tel: string };
-  nowEst: number;
-  onDone: (id: string) => void;
-}) {
-  const [showTranscript, setShowTranscript] = useState(false);
-  return (
-    <li className={`talk tier-${item.tier}`}>
-      <div className="talk-body">
-        <p className="who">
-          <strong className="name">{item.name ?? 'Unknown caller'}</strong>
-          <span className="phone tnum">{phone?.phone ?? item.phoneMasked}</span>
-        </p>
-        <p className="issue">
-          <span className="tier-word">{item.tierLabel}</span>
-          <span className="intent">{item.intentLabel}</span>
-          {item.amountUsd != null && <span className="amount tnum">{usd(item.amountUsd)}</span>}
-        </p>
-        <p className="brief">{item.summary}</p>
-        {item.hasTranscript && (
-          <button type="button" className="link-btn" onClick={() => setShowTranscript((v) => !v)} aria-expanded={showTranscript}>
-            {showTranscript ? 'Hide transcript' : 'Show transcript'}
-          </button>
-        )}
-        {showTranscript && <Transcript id={item.id} />}
+    <div className="detail-body" aria-busy="true">
+      <div className="detail-head">
+        <span className="sk sk-avatar-lg" />
+        <div className="detail-who">
+          <span className="sk sk-name" />
+          <span className="sk sk-line" />
+        </div>
       </div>
-      <div className="talk-actions">
-        {item.claimedAt && <span className="muted tnum">on call {clock(nowEst - item.claimedAt)}</span>}
-        {phone && (
-          <a className="btn btn-primary" href={phone.tel.startsWith('tel:') ? phone.tel : `tel:${phone.phone}`}>
-            Dial {phone.phone}
-          </a>
-        )}
-        <button type="button" className="btn" onClick={() => onDone(item.id)}>
-          Done
-        </button>
-      </div>
-    </li>
+      <span className="sk sk-para" />
+      <span className="sk sk-bar" />
+    </div>
   );
 }

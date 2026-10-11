@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { DEV_AUTH_AVAILABLE, supabase, useAuth } from '../auth';
 import { linkClick, navigate, useLocation } from '../router';
+import { BrandLogo } from '../components/BrandLogo';
 
 export default function LoginPage() {
   const { search } = useLocation();
@@ -44,17 +45,25 @@ export default function LoginPage() {
 
   return (
     <div className="login">
-      <div className="login-pills" aria-hidden="true">
-        <i style={{ top: '8%', right: '-6%', width: '46%' }} />
-        <i style={{ top: '22%', right: '18%', width: '30%' }} />
-        <i style={{ top: '22%', right: '-10%', width: '22%' }} />
-        <i style={{ bottom: '18%', right: '6%', width: '38%' }} />
-        <i style={{ bottom: '6%', right: '-12%', width: '34%' }} />
-      </div>
+      <svg className="login-pills" viewBox="0 0 600 900" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
+        {/* The brand's supporting pattern: rounded cobalt bars, some joined by a diagonal. */}
+        <g className="drift d1">
+          <path d="M330 110 H640" />
+          <path d="M150 250 H300 L380 360 H640" />
+        </g>
+        <g className="drift d2">
+          <path d="M260 520 H420" />
+          <path d="M500 520 H640" />
+        </g>
+        <g className="drift d3">
+          <path d="M120 690 H250 L330 790 H520" />
+          <path d="M440 650 H640" />
+        </g>
+      </svg>
 
       <div className="login-col">
-        <a href="/" onClick={linkClick} className="wordmark wordmark-lg">
-          Rung
+        <a href="/" onClick={linkClick} className="login-logo" aria-label="Rung home">
+          <BrandLogo size={56} />
         </a>
         <h1 className="login-title">{signup ? 'Set up your Rung.' : 'Welcome back.'}</h1>
         <p className="login-sub">
@@ -125,7 +134,7 @@ function DevSignIn({ initial }: { initial: string }) {
       }}
     >
       <p className="eyebrow">Dev sign-in</p>
-      <p className="muted">Local only. Sends the token <code>dev:&lt;email&gt;</code>; works without Supabase.</p>
+      
       <div className="inline">
         <input type="email" required placeholder="demo user email" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="Dev email" />
         <button type="submit" className="btn">

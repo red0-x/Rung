@@ -1,0 +1,137 @@
+import { useEffect, useState, type ReactNode } from 'react';
+import { useAuth } from '../auth';
+import { linkClick, navigate } from '../router';
+import { BrandLogo } from './BrandLogo';
+import { IconCallers, IconCollapse, IconLogout, IconPeople, IconQueue, IconSetup } from './Icons';
+
+const NAV = [
+  { href: '/queue', label: 'Queue', Icon: IconQueue },
+  { href: '/callers', label: 'Callers', Icon: IconCallers },
+  { href: '/setup', label: 'Setup', Icon: IconSetup },
+];
+
+const COLLAPSE_KEY = 'rung.sidebar';
+
+export function Shell({ path, children }: { path: string; children: ReactNode }) {
+  const { me, signOut } = useAuth();
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(COLLAPSE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }, [collapsed]);
+
+  const dial = me?.platform.dial;
+  const org = me?.org;
+
+  return (
+    <div className={`shell${collapsed ? ' is-collapsed' : ''}`}>
+      <aside className="sidebar" aria-label="Rung">
+        <div className="sb-top">
+          <a href="/queue" onClick={linkClick} className="sb-logo" aria-label="Rung, go to queue">
+            <BrandLogo collapsed={collapsed} size={collapsed ? 30 : 32} />
+          </a>
+          <button
+            type="button"
+            className="sb-collapse"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-pressed={collapsed}
+            onClick={() => setCollapsed((c) => !c)}
+          >
+            <IconCollapse />
+          </button>
+        </div>
+        <nav className="sb-nav" aria-label="Dashboard">
+          {NAV.map(({ href, label, Icon }) => (
+            <a
+              key={href}
+              href={href}
+              onClick={linkClick}
+              className="sb-link"
+              aria-current={path === href ? 'page' : undefined}
+              data-tip={collapsed ? label : undefined}
+            >
+              <Icon />
+              <span className="sb-label">{label}</span>
+            </a>
+          ))}
+        </nav>
+        <div className="sb-foot">
+          {dial && (
+            <p className={`sb-dial dial-${dial}`} data-tip={dial === 'mock' ? 'Dial calls are recorded, not sent' : 'Connected to Dial'}>
+              <i className="dot" aria-hidden="true" />
+              <span className="sb-label">Dial: {dial}</span>
+            </p>
+          )}
+          {org && (
+            <p className="sb-org">
+              <span className="sb-avatar" aria-hidden="true">
+                {initials(org.name)}
+              </span>
+              <span className="sb-label">{org.name}</span>
+            </p>
+          )}
+          <button
+            type="button"
+            className="sb-link sb-logout"
+            onClick={async () => {
+              await signOut();
+              navigate('/login', { replace: true });
+            }}
+            data-tip={collapsed ? 'Log out' : undefined}
+          >
+            <IconLogout />
+            <span className="sb-label">Log out</span>
+          </button>
+        </div>
+      </aside>
+      <main className="shell-main">{children}</main>
+    </div>
+  );
+}
+
+export function initials(name: string | null | undefined): string {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1]![0] : '')).toUpperCase() || '?';
+}
+
+export function greeting(d = new Date()): string {
+  const h = d.getHours();
+  return h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
+
+export function PageHeader({ title, sentence, right }: { title: ReactNode; sentence?: ReactNode; right?: ReactNode }) {
+  return (
+    <header className="page-head">
+      <div>
+        <h1 className="page-title">{title}</h1>
+        {sentence && <p className="page-sentence">{sentence}</p>}
+      </div>
+      {right && <div className="page-head-right">{right}</div>}
+    </header>
+  );
+}
+
+export function ReadyPill({ offline }: { offline?: boolean }) {
+  return (
+    <span className={`ready-pill${offline ? ' is-down' : ''}`} role="status">
+      <span className="rp-seg rp-queue">
+        <IconPeople width={16} height={16} />
+        Priority queue
+      </span>
+      <span className="rp-seg">
+        <i className="dot" aria-hidden="true" />
+        {offline ? 'Reconnecting' : 'Ready for callback'}
+      </span>
+    </span>
+  );
+}

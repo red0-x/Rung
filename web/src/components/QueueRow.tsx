@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, errorText } from '../api';
-import { TRUST_LABEL, clock, usd } from '../format';
+import { capitalize, clock, usd } from '../format';
+import { useCountUp } from '../hooks';
 import type { QueueItemView, TranscriptResponse } from '../types';
+import { useCollapseOut } from '../useFlip';
 import { Digits } from './Digits';
-import { ScoreBar } from './ScoreBar';
+import { initials } from './Shell';
 
 export interface RowFlag {
   kind: 'new' | 'up';
@@ -11,7 +13,7 @@ export interface RowFlag {
   until: number;
 }
 
-const SPEAKER: Record<string, string> = { agent: 'Voice agent', user: 'Caller', caller: 'Caller', transfer_target: 'Specialist' };
+const SPEAKER: Record<string, string> = { agent: 'Agent', user: 'Caller', caller: 'Caller', transfer_target: 'Specialist' };
 
 export function Transcript({ id }: { id: string }) {
   const [t, setT] = useState<TranscriptResponse | null>(null);
@@ -27,8 +29,8 @@ export function Transcript({ id }: { id: string }) {
     };
   }, [id]);
 
-  if (failed) return <p className="transcript">The transcript could not be loaded. {failed}</p>;
-  if (!t) return <p className="transcript muted">Loading transcript…</p>;
+  if (failed) return <p className="transcript">Couldn't load the transcript. {failed}</p>;
+  if (!t) return <p className="transcript muted">Loading…</p>;
   if (t.turns?.length) {
     return (
       <div className="transcript">
@@ -43,95 +45,88 @@ export function Transcript({ id }: { id: string }) {
   return <p className="transcript">{t.transcript ?? 'No transcript yet.'}</p>;
 }
 
-interface Props {
+export function Avatar({ item, size = 'md' }: { item: QueueItemView; size?: 'md' | 'lg' }) {
+  return (
+    <span className={`avatar avatar-${size} tier-${item.tier}`} aria-hidden="true">
+      {item.name ? initials(item.name) : '?'}
+    </span>
+  );
+}
+
+export function liveAging(item: QueueItemView, nowEst: number, perMin: number, cap: number): number {
+  const waited = Math.max(0, nowEst - item.createdAt);
+  return Math.max(item.score.aging, Math.min(cap, (waited / 60_000) * perMin));
+}
+
+interface RowProps {
   item: QueueItemView;
   nowEst: number;
   agingPerMin: number;
   agingCap: number;
-  scaleMax: number;
-  /** Minutes until a rep is likely free for this caller. */
-  etaMin: number;
   flag?: RowFlag;
-  busy: boolean;
-  onClaim: (id: string) => void;
+  selected: boolean;
+  leaving: boolean;
+  onSelect: (id: string) => void;
 }
 
-export function QueueRow({ item, nowEst, agingPerMin, agingCap, scaleMax, etaMin, flag, busy, onClaim }: Props) {
-  const [showTranscript, setShowTranscript] = useState(false);
-  const waitedMs = Math.max(0, nowEst - item.createdAt);
-  // Aging creeps between polls; never show less than the server already counted.
-  const agingExact = Math.max(item.score.aging, Math.min(agingCap, (waitedMs / 60_000) * agingPerMin));
-  const aging = Math.floor(agingExact);
-  const { urgency, value } = item.score;
-  const total = urgency + value + aging;
-  const isNext = item.rank === 1;
+/** One ranked caller in the master list. The whole row is the selection button. */
+export function ListRow({ item, nowEst, agingPerMin, agingCap, flag, selected, leaving, onSelect }: RowProps) {
+  const ref = useRef<HTMLLIElement>(null);
+  useCollapseOut(ref, leaving, 280);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+  }, []);
+
+  const inCall = item.status === 'in_progress';
+  const sinceMs = Math.max(0, nowEst - (inCall ? (item.claimedAt ?? item.createdAt) : item.createdAt));
+  const aging = Math.floor(liveAging(item, nowEst, agingPerMin, agingCap));
+  const total = useCountUp(item.score.urgency + item.score.value + aging, 500);
+  const fresh = flag && flag.until > Date.now() ? flag : undefined;
 
   return (
-    <li className={`row tier-${item.tier}${isNext ? ' next' : ''}`} data-id={item.id}>
-      <div className="rank tnum" aria-label={`Rank ${item.rank ?? ''}`}>
-        {item.rank}
-      </div>
-
-      <div className="body">
-        <div className="who">
-          <h3 className="name">{item.name ?? 'Unknown caller'}</h3>
-          <span className="phone tnum">{item.phoneMasked}</span>
-          <span className={`trust trust-${item.trust}`}>{TRUST_LABEL[item.trust]}</span>
-          {item.returning && <span className="trust trust-returning">Returning</span>}
-          {flag && flag.until > Date.now() && (
-            <span className="flag">{flag.kind === 'new' ? 'Just in' : `Up from #${flag.from}`}</span>
+    <li
+      ref={ref}
+      data-id={item.id}
+      data-leaving={leaving || undefined}
+      className={`lrow-wrap tier-${item.tier}${selected ? ' is-selected' : ''}${fresh?.kind === 'new' ? ' is-new' : ''}${inCall ? ' is-call' : ''}`}
+    >
+      <button
+        type="button"
+        className="lrow"
+        aria-pressed={selected}
+        aria-label={`${inCall ? 'On a call' : `Rank ${item.rank}`}: ${item.name ?? 'Unknown caller'}, ${item.intentLabel}`}
+        onClick={() => onSelect(item.id)}
+        disabled={leaving}
+      >
+        <span className="lrow-rank tnum" aria-hidden="true">
+          {inCall ? (
+            <i className="call-dot" />
+          ) : (
+            <span key={item.rank ?? 0} className={mounted.current ? 'rank-n roll' : 'rank-n'}>
+              {item.rank}
+            </span>
           )}
-        </div>
-
-        <p className="issue">
-          <span className="tier-word">{item.tierLabel}</span>
-          <span className="intent">{item.intentLabel}</span>
-          {item.amountUsd != null && <span className="amount tnum">{usd(item.amountUsd)}</span>}
-        </p>
-
-        <ScoreBar urgency={urgency} value={value} aging={agingExact} scaleMax={scaleMax} />
-        <p className="parts tnum">
-          <span>
-            <i className="sw sw-urgency" />
-            Urgency {urgency}
+        </span>
+        <Avatar item={item} />
+        <span className="lrow-main">
+          <span className="lrow-name">
+            {item.name ?? 'Unknown caller'}
+            {fresh && <span className="flag">{fresh.kind === 'new' ? 'New' : `Up from #${fresh.from}`}</span>}
           </span>
-          <span>
-            <i className="sw sw-value" />
-            Value {value}
+          <span className="lrow-sub">
+            {capitalize(item.intentLabel)}
+            {item.amountUsd != null && <b className="tnum"> · {usd(item.amountUsd)}</b>}
           </span>
-          <span>
-            <i className="sw sw-aging" />
-            Waiting {aging}
+        </span>
+        <span className="lrow-meta">
+          <span className={`wait-pill tnum${inCall ? ' is-call' : ''}`}>
+            <Digits text={clock(sinceMs)} />
           </span>
-        </p>
-
-        <p className="brief">{item.summary}</p>
-        <p className="reason tnum">{item.reason}</p>
-
-        {item.hasTranscript && (
-          <button type="button" className="link-btn" onClick={() => setShowTranscript((v) => !v)} aria-expanded={showTranscript}>
-            {showTranscript ? 'Hide transcript' : 'Show transcript'}
-          </button>
-        )}
-        {showTranscript && <Transcript id={item.id} />}
-      </div>
-
-      <div className="side">
-        <div className="metric">
-          <span className="metric-n">
-            <Digits text={clock(waitedMs)} />
-          </span>
-          <span className="metric-l">waiting</span>
-        </div>
-        <div className="metric">
-          <span className="metric-n tnum">{total}</span>
-          <span className="metric-l">points</span>
-        </div>
-        <p className="eta tnum">Callback in ~{etaMin} min</p>
-        <button type="button" className={`btn${isNext ? ' btn-primary' : ''}`} disabled={busy} onClick={() => onClaim(item.id)}>
-          {busy ? 'Opening…' : 'Call back'}
-        </button>
-      </div>
+          {!inCall && <span className="lrow-score tnum">{total} pts</span>}
+          {inCall && <span className="lrow-score">on call</span>}
+        </span>
+      </button>
     </li>
   );
 }
