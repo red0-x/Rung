@@ -239,6 +239,17 @@ export function createSupabaseStore(sb: SupabaseClient): Store {
       const rows = must(await q.order('created_at', { ascending: false }).limit(1));
       return rows && rows[0] ? rowToItem(rows[0]) : undefined;
     },
+    async phoneHistory(orgId, phone, limit) {
+      const res = await sb
+        .from('queue_items')
+        .select('*', { count: 'exact' })
+        .eq('org_id', orgId)
+        .eq('phone', phone)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (res.error) throw new Error(`Supabase: ${res.error.message}`);
+      return { items: (res.data ?? []).map(rowToItem), total: res.count ?? res.data?.length ?? 0 };
+    },
     async listQueueItems(orgId, opts) {
       let q = sb.from('queue_items').select('*').eq('org_id', orgId);
       if (opts?.statuses) q = q.in('status', opts.statuses);

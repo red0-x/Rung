@@ -39,6 +39,8 @@ export interface Store {
   findQueueItemByCallId(callId: string): Promise<QueueItem | undefined>;
   /** Newest item for this number at this org, optionally limited to some statuses. */
   latestQueueItemForPhone(orgId: string, phone: string, statuses?: QueueStatus[]): Promise<QueueItem | undefined>;
+  /** This number's newest `limit` items at this org (any status) and how many it has in total. One query. */
+  phoneHistory(orgId: string, phone: string, limit: number): Promise<{ items: QueueItem[]; total: number }>;
   /** Newest first. */
   listQueueItems(orgId: string, opts?: { statuses?: QueueStatus[]; limit?: number; since?: number }): Promise<QueueItem[]>;
 

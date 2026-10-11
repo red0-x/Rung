@@ -105,6 +105,19 @@ interface QueueResponse {
 - Dial attaches one Context MCP per account, so production uses `POST /mcp` with static header `X-Mcp-Secret: <MCP_SHARED_SECRET>` (bearer or `/mcp/<MCP_SHARED_SECRET>` also accepted). Required when the secret is set; production won't boot without it. A missing/templated agent number (tool discovery) is allowed with the secret: tools list fine, tool calls return error `org_unknown`.
 - Caller identity only from `X-Dial-User-Number` (E.164; missing / `{{template}}` values = unknown caller).
 - Tools: `lookup_caller()`, `send_code()`, `check_code({code})`, `save_profile({name, consent})`, `triage_call({intent, amount_usd?, summary, caller_name?})`. Shapes per `attachments/RUNG_CONTEXT.md` §4.
+- `lookup_caller()` returns (additive; one round of parallel store reads, no LLM):
+  ```ts
+  { known: boolean;                       // has a saved profile at this org
+    name: string|null; first_name: string|null;
+    name_source: 'profile'|'previous_call'|null;   // previous_call = caller_name from an earlier triage, unconfirmed
+    last_issue: {summary, when}|null;      // newest item, any status
+    recent_issues: {summary, intent, intent_label, when, status}[];   // newest 3
+    call_count: number;                    // all queue items for this number at this org
+    previous_calls: number|null;           // = call_count when there is no profile, null when known
+    has_open_request: boolean;
+    open_request: {summary, status:'queued'|'in_progress', position:number|null, estimated_callback_minutes:number|null}|null;
+    org_name: string; guidance: string }   // guidance = what to say next (welcome back / confirm name / callback #N, ~M min)
+  ```
 - `REQUIRE_VERIFICATION` (server env, default **false**): when false, `send_code`/`check_code` are not listed, `save_profile` needs consent only, `triage_call` never returns `verification_required`, trust is only `recognized`/`new`, and `platform.demoShowCodes` is false. When true: texted-code flow as above.
 
 ## Webhooks

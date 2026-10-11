@@ -116,6 +116,10 @@ export function createMemoryStore(): Store {
         .sort(newestFirst)[0];
       return found ? clone(found) : undefined;
     },
+    async phoneHistory(orgId, phone, limit) {
+      const all = [...items.values()].filter((i) => i.orgId === orgId && i.phone === phone).sort(newestFirst);
+      return { items: all.slice(0, limit).map(clone), total: all.length };
+    },
     async listQueueItems(orgId, opts) {
       const list = [...items.values()]
         .filter((i) => i.orgId === orgId && matches(i, opts?.statuses) && (opts?.since === undefined || i.createdAt >= opts.since))

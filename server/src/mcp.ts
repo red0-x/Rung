@@ -22,6 +22,8 @@ export interface Deps {
 
 /** A second triage_call from the same number inside this window updates the waiting item instead of adding a duplicate. */
 const DEDUPE_MS = 3 * 60_000;
+/** How many past issues lookup_caller returns. */
+const RECENT_ISSUES = 3;
 
 const ok = (data: Record<string, unknown>): CallToolResult => ({
   content: [{ type: 'text', text: JSON.stringify(data) }],
@@ -83,29 +85,86 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       title: 'Look up caller',
       description:
         'Call this first, before asking the caller anything. Takes no arguments: the caller is identified automatically from their phone number. ' +
-        'Returns whether they have a saved profile, their name, and their most recent issue so you can greet them personally.',
+        'Returns whether they have a saved profile, their name, their recent issues, and any callback already pending, plus guidance on what to say.',
     },
     async () => {
       const id = identify();
       if ('err' in id) return id.err;
       const { org: o, phone } = id;
       const t = now();
-      const [profile, last, open] = await Promise.all([
+      const s = o.settings;
+      // One round of parallel reads: profile, this number's history, the org's active queue (for position).
+      const [profile, history, active] = await Promise.all([
         store.getProfile(o.id, phone),
-        store.latestQueueItemForPhone(o.id, phone),
-        store.latestQueueItemForPhone(o.id, phone, ['queued', 'in_progress']),
+        store.phoneHistory(o.id, phone, RECENT_ISSUES),
+        store.listQueueItems(o.id, { statuses: ['queued', 'in_progress'] }),
       ]);
-      log(`lookup_caller ${tag(o, phone)} known=${!!profile}`);
+      const recent = history.items;
+      const last = recent[0];
+      const named = recent.find((i) => i.name);
+      const name = profile?.name ?? named?.name ?? null;
+      const nameSource = profile ? 'profile' : named ? 'previous_call' : null;
+      const firstName = name ? name.trim().split(/\s+/)[0]! : null;
+
+      const openItem = active.filter((i) => i.phone === phone).sort((x, y) => y.createdAt - x.createdAt)[0];
+      let openRequest: { summary: string; status: string; position: number | null; estimated_callback_minutes: number | null } | null = null;
+      if (openItem) {
+        if (openItem.status === 'queued') {
+          const ranked = rankQueued(active, t, s);
+          const position = ranked.findIndex((r) => r.item.id === openItem.id) + 1;
+          openRequest = {
+            summary: openItem.summary,
+            status: 'queued',
+            position,
+            estimated_callback_minutes: estimateCallbackMinutes(position, s.avgHandleMin, s.repsOnShift),
+          };
+        } else {
+          openRequest = { summary: openItem.summary, status: 'in_progress', position: null, estimated_callback_minutes: null };
+        }
+      }
+
+      const lastIssue = last ? `"${last.summary}" (${relativeDay(last.createdAt, t)})` : null;
+      const openLine = openRequest
+        ? openRequest.status === 'queued'
+          ? ` They already have a callback pending: it is #${openRequest.position} in line, about ${openRequest.estimated_callback_minutes} minutes away. Tell them, and ask if this call is about the same thing.`
+          : ' A specialist is already working on their open request. Tell them, and ask if this call is about the same thing.'
+        : lastIssue
+          ? ` Ask whether this is about their last issue, ${lastIssue}, or something new.`
+          : ' Ask what you can help with.';
+      let guidance: string;
+      if (profile) {
+        guidance = `Returning caller. Say "Welcome back, ${firstName}."${openLine}`;
+      } else if (history.total > 0) {
+        guidance =
+          `You've spoken before (${history.total} ${history.total === 1 ? 'call' : 'calls'}) but they haven't saved their name. ` +
+          (name
+            ? `Say "Welcome back" and confirm the name they gave last time: "Is this ${firstName}?"`
+            : 'Say "Welcome back" without a name.') +
+          `${openLine} Later, offer to save their name so next time is instant.`;
+      } else {
+        guidance = `New caller. Say "${s.greeting}" and ask what happened. After you understand the issue, offer to save their details so next time is instant.`;
+      }
+
+      log(`lookup_caller ${tag(o, phone)} known=${!!profile} calls=${history.total} open=${openRequest?.status ?? 'none'}`);
       return ok({
         known: !!profile,
-        name: profile?.name ?? null,
-        first_name: profile ? profile.name.split(' ')[0] : null,
+        name,
+        first_name: firstName,
+        name_source: nameSource,
         last_issue: last ? { summary: last.summary, when: relativeDay(last.createdAt, t) } : null,
-        has_open_request: !!open,
+        recent_issues: recent.map((i) => ({
+          summary: i.summary,
+          intent: i.intent,
+          intent_label: s.intents[i.intent]?.label ?? i.intent,
+          when: relativeDay(i.createdAt, t),
+          status: i.status,
+        })),
+        call_count: history.total,
+        previous_calls: profile ? null : history.total,
+        has_open_request: !!openItem,
+        open_request: openRequest,
         org_name: o.name,
-        guidance: profile
-          ? 'Greet them by first name and ask whether this is about their last issue or something new.'
-          : `New caller. Say "${o.settings.greeting}" and ask what happened. After you understand the issue, offer to save their details so next time is instant.`,
+        guidance,
       });
     },
   );
