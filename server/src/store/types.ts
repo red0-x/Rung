@@ -1,4 +1,4 @@
-import type { Org, OrgMember, Profile, QueueItem, QueueStatus, Verification } from '../types.js';
+import type { Org, OrgInvite, OrgMember, Profile, QueueItem, QueueStatus, Verification } from '../types.js';
 
 /**
  * Persistence boundary. Two implementations: in-memory (tests, zero-setup dev)
@@ -18,9 +18,13 @@ export interface Store {
   updateOrg(id: string, patch: Partial<Omit<Org, 'id'>>): Promise<Org | undefined>;
 
   // Members
-  getMembership(userId: string): Promise<OrgMember | undefined>;
+  /** Every org this user belongs to, oldest membership first. */
+  listMemberships(userId: string): Promise<OrgMember[]>;
   addMember(member: OrgMember): Promise<void>;
   listMembers(orgId: string): Promise<OrgMember[]>;
+  /** Idempotent per (org, email). Emails are stored lowercase. */
+  addInvite(invite: OrgInvite): Promise<void>;
+  listInvitesForEmail(email: string): Promise<OrgInvite[]>;
   /** Heartbeat: mark a member as seen now (presence) and refresh their display name. */
   touchMember(orgId: string, userId: string, at: number, name: string): Promise<void>;
 

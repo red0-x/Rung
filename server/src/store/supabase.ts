@@ -167,12 +167,23 @@ export function createSupabaseStore(sb: SupabaseClient): Store {
       return r ? rowToOrg(r) : undefined;
     },
 
-    async getMembership(userId) {
-      const rows = must(
-        await sb.from('org_members').select('*').eq('user_id', userId).order('created_at', { ascending: true }).limit(1),
+    async listMemberships(userId) {
+      const rows = must(await sb.from('org_members').select('*').eq('user_id', userId).order('created_at', { ascending: true }));
+      return (rows ?? []).map(rowToMember);
+    },
+    async addInvite(inv) {
+      must(
+        await sb
+          .from('org_invites')
+          .upsert(
+            { org_id: inv.orgId, email: inv.email.toLowerCase(), role: inv.role, created_at: iso(inv.createdAt) },
+            { onConflict: 'org_id,email', ignoreDuplicates: true },
+          ),
       );
-      const r = rows?.[0];
-      return r ? rowToMember(r) : undefined;
+    },
+    async listInvitesForEmail(email) {
+      const rows = must(await sb.from('org_invites').select('*').eq('email', email.toLowerCase()));
+      return (rows ?? []).map((r: Row) => ({ orgId: r.org_id, email: r.email, role: r.role, createdAt: ms(r.created_at)! }));
     },
     async listMembers(orgId) {
       return (must(await sb.from('org_members').select('*').eq('org_id', orgId)) ?? []).map(rowToMember);

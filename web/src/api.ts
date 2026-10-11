@@ -39,10 +39,31 @@ export class ApiError extends Error {
   }
 }
 
+/** Which org the dashboard is looking at, for people who belong to several. Unset = the server's default. */
+const ORG_KEY = 'rung.orgId';
+export function selectedOrgId(): string | null {
+  try {
+    return localStorage.getItem(ORG_KEY);
+  } catch {
+    return null;
+  }
+}
+/** Switch orgs: remember the choice and reload so every page and poll starts clean on the new org. */
+export function switchOrg(id: string) {
+  try {
+    localStorage.setItem(ORG_KEY, id);
+  } catch {
+    /* ignore */
+  }
+  window.location.reload();
+}
+
 async function request<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
   const headers: Record<string, string> = {};
   const token = tokenGetter();
   if (token) headers.Authorization = `Bearer ${token}`;
+  const orgId = selectedOrgId();
+  if (orgId) headers['X-Org-Id'] = orgId;
   if (init.body !== undefined) headers['Content-Type'] = 'application/json';
   let res: Response;
   try {

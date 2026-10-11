@@ -1,4 +1,4 @@
-# Rung API contract (v4)
+# Rung API contract (v5)
 
 The server (`server/`) and dashboard (`web/`) both build to this file. Change it only together.
 
@@ -9,7 +9,7 @@ The server (`server/`) and dashboard (`web/`) both build to this file. Change it
 ## Auth
 
 - `/api/health` is public. Everything else under `/api/*` needs `Authorization: Bearer <token>`.
-- Several reps per org (`org_members.role` `admin` | `rep`), one login each. Any signed-in request is a presence heartbeat (`org_members.last_seen_at`, written at most every 15 s). Rep display name = the email's plus-tag (`me+sam@x.com` → `Sam`) or local part.
+- Several reps per org (`org_members.role` `admin` | `rep`), one login each. One login may belong to several orgs: send `X-Org-Id: <org id>` to pick one (unknown or not-yours falls back to the oldest membership; never grants access). Invites by email (`org_invites`) become memberships on that person's next `GET /api/me`. Any signed-in request is a presence heartbeat (`org_members.last_seen_at`, written at most every 15 s). Rep display name = the email's plus-tag (`me+sam@x.com` → `Sam`) or local part.
 - `<token>` = the Supabase access token (`session.access_token`). Server verifies with `supabase.auth.getUser(token)`.
 - Dev/test only (`ENABLE_DEV`, never in production): `Bearer dev:<email>` is accepted as that user. `dev:<DEMO_BANK_EMAIL>` is a member of Bank of Antarctica, `dev:<DEMO_CLINIC_EMAIL>` of the clinic, in both memory and Supabase stores.
 - Errors: `401 {error:"unauthorized"}` (missing/bad token) · `403 {error:"no_org"}` (signed in, no org yet: send the user to `/setup`) · `404 {error:"not_found"}` (unknown id **or another org's id**) · `400 {error:"<code>", message?}` · `409 {error:"<code>"}`.
@@ -67,11 +67,12 @@ Tier labels: critical "Critical", high "High", normal "Normal", low "Low".
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
 | GET | `/api/health` | | `{ok, store:'memory'\|'supabase', dial:'mock'\|'live', time}` |
-| GET | `/api/me` | | `{user:{id,email}, org: OrgView\|null, role:'admin'\|null, platform:{dial:'mock'\|'live', demoShowCodes:boolean, enableDev:boolean, requireVerification:boolean}}` (never 403) |
+| GET | `/api/me` | | `{user:{id,email}, org: OrgView\|null, role:'admin'\|'rep'\|null, orgs:[{id,name,slug,role}], platform:{dial:'mock'\|'live', demoShowCodes:boolean, enableDev:boolean, requireVerification:boolean}}` (never 403) |
 | POST | `/api/org` | `{name}` | `201 {org}`. Creates org with default settings, caller becomes admin. `409 already_member` |
 | GET | `/api/org` | | `{org}` |
 | PATCH | `/api/org` | `{name?, settings?: Partial<OrgSettings>}` (intents may be partial per key) | `{org}`; `400 invalid` on zod failure |
 | GET | `/api/numbers` | | `{numbers:[{id, number, mock, available:boolean, mine:boolean}]}` (pool from `DIAL_NUMBER_POOL`) |
+| POST | `/api/org/invites` | `{email, role?:'admin'\|'rep'}` (default rep) | `201 {ok:true}`; admin only (`403 admin_only`); `400 invalid`. They join on their next `/api/me` |
 | POST | `/api/org/number` | `{numberId}` | `{org}`; `409 number_taken`; `404` unknown id. Claiming a new one releases the old one |
 | GET | `/api/prompt-preview` | | `{prompt}` rendered from saved settings |
 | POST | `/api/prompt-preview` | `{name?, settings?}` draft (not saved) | `{prompt}` |

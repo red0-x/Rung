@@ -73,6 +73,14 @@ export interface OrgMember {
   lastSeenAt?: number;
 }
 
+/** Someone added to an org by email before (or after) they sign up; becomes a membership on their next /api/me. */
+export interface OrgInvite {
+  orgId: string;
+  email: string;
+  role: Role;
+  createdAt: number;
+}
+
 export interface TranscriptTurn {
   speaker: string;
   text: string;

@@ -29,7 +29,7 @@ export interface Harness {
   clinic: Org;
   advanceMin(min: number): void;
   /** Dashboard API call as a dev user (default: the bank admin). Pass email=null for no auth header. */
-  api(path: string, opts?: { method?: string; body?: unknown; as?: string | null }): Promise<{ status: number; body: any }>;
+  api(path: string, opts?: { method?: string; body?: unknown; as?: string | null; orgId?: string }): Promise<{ status: number; body: any }>;
   close(): Promise<void>;
 }
 
@@ -87,6 +87,7 @@ export async function boot(env: Record<string, string> = {}, keewano?: Keewano):
       const headers: Record<string, string> = {};
       if (as !== null) headers.authorization = `Bearer dev:${as}`;
       if (opts.body !== undefined) headers['content-type'] = 'application/json';
+      if (opts.orgId) headers['x-org-id'] = opts.orgId;
       const res = await fetch(`${base}/api${path}`, {
         method: opts.method ?? (opts.body !== undefined ? 'POST' : 'GET'),
         headers,

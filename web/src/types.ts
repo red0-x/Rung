@@ -133,6 +133,8 @@ export interface MeResponse {
   user: { id: string; email: string };
   org: OrgView | null;
   role: 'admin' | 'rep' | null;
+  /** Every org this login belongs to; more than one shows the sidebar switcher. */
+  orgs: { id: string; name: string; slug: string; role: 'admin' | 'rep' }[];
   platform: { dial: DialMode; demoShowCodes: boolean; enableDev: boolean; requireVerification?: boolean };
 }
 

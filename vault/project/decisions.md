@@ -5,6 +5,11 @@ type: decisions
 
 Newest first. Append with [[templates/decision]]. Never edit an old one; supersede it.
 
+## D8 · One login, several orgs; teammates added by email invite
+- `X-Org-Id` header picks the org per request (sidebar switcher, stored in localStorage); falls back to the oldest membership, never grants access. Invites by email become memberships on the person's next `/api/me`, so nobody's password is handled for them.
+- Why: the team (Jadon, Conrad, Reid) needs both demo orgs without six plus-address accounts.
+- Owner: Jadon · 2026-10-11
+
 ## D7 · Several reps per org: pull-based claims, one login each
 - A callback is claimed with a compare-and-set on `status='queued'`; the loser gets `409 already_claimed`. Reps press **Take next** (server hands out the top unclaimed caller, one open callback each) instead of the server pushing calls. Only the claimer or an admin can finish/cancel. Presence = dashboard heartbeat; callback estimates divide by reps online.
 - Every rep has their own login (demo: Gmail plus-addresses + `DEMO_BANK_REPS`). Invite codes come after the demo.

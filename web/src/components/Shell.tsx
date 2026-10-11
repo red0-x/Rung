@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { switchOrg } from '../api';
 import { useAuth } from '../auth';
 import { linkClick, navigate } from '../router';
 import { BrandLogo } from './BrandLogo';
@@ -76,7 +77,17 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
               <span className={`sb-avatar${ORG_AVATARS[org.slug] ? ' has-img' : ''}`} aria-hidden="true">
                 {ORG_AVATARS[org.slug] ? <img src={ORG_AVATARS[org.slug]} alt="" /> : initials(org.name)}
               </span>
-              <span className="sb-label">{org.name}</span>
+              {(me?.orgs.length ?? 0) > 1 && !collapsed ? (
+                <select className="sb-label sb-org-select" value={org.id} onChange={(e) => switchOrg(e.target.value)} aria-label="Switch organization">
+                  {me!.orgs.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="sb-label">{org.name}</span>
+              )}
             </p>
           )}
           <button

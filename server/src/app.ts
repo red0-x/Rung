@@ -15,7 +15,7 @@ import { rankQueued, savedMinutes, toView } from './queue.js';
 import { HEARTBEAT_MS, repName, repViews } from './reps.js';
 import { scoreItem } from './scoring.js';
 import { mergeSettings, settingsPatchSchema } from './settings.js';
-import type { Org, QueueItem, Role, Trust } from './types.js';
+import type { Org, OrgMember, QueueItem, Role, Trust } from './types.js';
 import { verifyDialSignature } from './webhook.js';
 
 export interface AppDeps extends Deps {
@@ -37,10 +37,14 @@ interface Locals {
   user: AuthUser;
   org: Org | null;
   role: Role | null;
+  memberships: OrgMember[];
 }
 const L = (res: Response) => res.locals as Locals;
 
 const orgBody = z.object({ name: z.string().trim().min(1).max(80) }).strict();
+const inviteBody = z
+  .object({ email: z.string().trim().toLowerCase().email().max(200), role: z.enum(['admin', 'rep']).default('rep') })
+  .strict();
 const orgPatchBody = z
   .object({ name: z.string().trim().min(1).max(80).optional(), settings: settingsPatchSchema.optional() })
   .strict();
@@ -204,14 +208,26 @@ export function createApp(deps: AppDeps): Express {
       res.status(401).json({ error: 'unauthorized' });
       return;
     }
-    const m = await store.getMembership(user.id);
+    let memberships = await store.listMemberships(user.id);
+    // Invites by email turn into memberships when the person loads the app (after they sign up).
+    if (req.path === '/me' && user.email) {
+      const pending = (await store.listInvitesForEmail(user.email)).filter((i) => !memberships.some((m) => m.orgId === i.orgId));
+      for (const i of pending) await store.addMember({ orgId: i.orgId, userId: user.id, role: i.role });
+      if (pending.length) {
+        log(`invites accepted by ${user.email}: ${pending.length}`);
+        memberships = await store.listMemberships(user.id);
+      }
+    }
+    // One login can belong to several orgs: the dashboard names one per request, else the oldest membership.
+    const wanted = req.header('x-org-id');
+    const m = memberships.find((x) => x.orgId === wanted) ?? memberships[0];
     const org = m ? ((await store.getOrg(m.orgId)) ?? null) : null;
     // Presence heartbeat (throttled): any signed-in request means this rep has the dashboard open.
     const t = now();
     if (m && org && (m.lastSeenAt === undefined || t - m.lastSeenAt > HEARTBEAT_MS)) {
       await store.touchMember(org.id, user.id, t, repName(user.email));
     }
-    Object.assign(res.locals, { user, org, role: org ? m!.role : null } satisfies Locals);
+    Object.assign(res.locals, { user, org, role: org ? m!.role : null, memberships } satisfies Locals);
     next();
   });
 
@@ -222,9 +238,12 @@ export function createApp(deps: AppDeps): Express {
     requireVerification: cfg.requireVerification,
   });
 
-  api.get('/me', (_req, res) => {
-    const { user, org, role } = L(res);
-    res.json({ user: { id: user.id, email: user.email }, org: org ? toOrgView(cfg, org) : null, role, platform: platform() });
+  api.get('/me', async (_req, res) => {
+    const { user, org, role, memberships } = L(res);
+    const orgs = (await Promise.all(memberships.map(async (m) => ({ m, o: await store.getOrg(m.orgId) }))))
+      .filter((x) => x.o)
+      .map(({ m, o }) => ({ id: o!.id, name: o!.name, slug: o!.slug, role: m.role }));
+    res.json({ user: { id: user.id, email: user.email }, org: org ? toOrgView(cfg, org) : null, role, orgs, platform: platform() });
   });
 
   api.post('/org', async (req, res) => {
@@ -253,6 +272,22 @@ export function createApp(deps: AppDeps): Express {
     next();
   });
   const orgOf = (res: Response) => L(res).org!;
+
+  /** Add a teammate by email (admin). They join on their next sign-in; an existing account joins on its next page load. */
+  api.post('/org/invites', async (req, res) => {
+    if (L(res).role !== 'admin') {
+      res.status(403).json({ error: 'admin_only' });
+      return;
+    }
+    const body = inviteBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: 'invalid', message: body.error.message });
+      return;
+    }
+    await store.addInvite({ orgId: orgOf(res).id, email: body.data.email, role: body.data.role, createdAt: now() });
+    log(`[${orgOf(res).slug}] invited ${body.data.email} as ${body.data.role}`);
+    res.status(201).json({ ok: true });
+  });
 
   api.get('/org', (_req, res) => {
     res.json({ org: toOrgView(cfg, orgOf(res)) });

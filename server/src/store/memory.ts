@@ -1,4 +1,4 @@
-import type { Org, OrgMember, Profile, QueueItem, QueueStatus, Verification } from '../types.js';
+import type { Org, OrgInvite, OrgMember, Profile, QueueItem, QueueStatus, Verification } from '../types.js';
 import type { Store } from './types.js';
 
 const key = (orgId: string, phone: string) => `${orgId}:${phone}`;
@@ -7,6 +7,7 @@ const clone = <T>(v: T): T => structuredClone(v);
 export function createMemoryStore(): Store {
   const orgs = new Map<string, Org>();
   const members: OrgMember[] = [];
+  const invites: OrgInvite[] = [];
   const profiles = new Map<string, Profile>();
   const verifications = new Map<string, Verification>();
   const items = new Map<string, QueueItem>();
@@ -58,12 +59,18 @@ export function createMemoryStore(): Store {
       return clone(next);
     },
 
-    async getMembership(userId) {
-      const m = members.find((x) => x.userId === userId);
-      return m ? { ...m } : undefined;
+    async listMemberships(userId) {
+      return members.filter((x) => x.userId === userId).map((m) => ({ ...m }));
     },
     async addMember(member) {
       if (!members.some((m) => m.orgId === member.orgId && m.userId === member.userId)) members.push({ ...member });
+    },
+    async addInvite(inv) {
+      const email = inv.email.toLowerCase();
+      if (!invites.some((i) => i.orgId === inv.orgId && i.email === email)) invites.push({ ...inv, email });
+    },
+    async listInvitesForEmail(email) {
+      return invites.filter((i) => i.email === email.toLowerCase()).map((i) => ({ ...i }));
     },
     async listMembers(orgId) {
       return members.filter((m) => m.orgId === orgId).map((m) => ({ ...m }));
