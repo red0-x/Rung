@@ -76,11 +76,11 @@ describe('settings', () => {
 
 describe('prompt template', () => {
   it('renders every placeholder from org settings', () => {
-    const s = mergeSettings(defaultSettings('Demo Bank'), { greeting: 'Thanks for calling Demo Bank.', tone: 'crisp' });
-    const p = renderPrompt(loadPromptTemplate(), 'Demo Bank', s, { require_verification: true });
+    const s = mergeSettings(defaultSettings('Bank of Antarctica'), { greeting: 'Thanks for calling Bank of Antarctica.', tone: 'crisp' });
+    const p = renderPrompt(loadPromptTemplate(), 'Bank of Antarctica', s, { require_verification: true });
     expect(p).not.toMatch(/\{\{|<!--/);
-    expect(p).toContain("Demo Bank's priority line");
-    expect(p).toContain('Thanks for calling Demo Bank.');
+    expect(p).toContain("Bank of Antarctica's priority line");
+    expect(p).toContain('Thanks for calling Bank of Antarctica.');
     expect(p).toContain('Tone: crisp.');
     expect(p).toContain('moving money (money_movement), account change (account_change)');
     expect(p).toContain('- fraud_in_progress: suspected fraud');
@@ -88,7 +88,7 @@ describe('prompt template', () => {
   });
 
   it('omits every texted-code step when verification is off, and stays coherent', () => {
-    const p = renderPrompt(loadPromptTemplate(), 'Demo Bank', defaultSettings('Demo Bank'), { require_verification: false });
+    const p = renderPrompt(loadPromptTemplate(), 'Bank of Antarctica', defaultSettings('Bank of Antarctica'), { require_verification: false });
     expect(p).not.toMatch(/\{\{|<!--|send_code|check_code|verification code|texted|six-digit/i);
     expect(p).toContain('call lookup_caller');
     expect(p).toContain('call save_profile with the confirmed full name and consent set to true');
@@ -99,7 +99,7 @@ describe('prompt template', () => {
 
   it('asks every unsaved caller for a name, with spelling confirmation, in both modes', () => {
     for (const require_verification of [false, true]) {
-      const p = renderPrompt(loadPromptTemplate(), 'Demo Bank', defaultSettings('Demo Bank'), { require_verification });
+      const p = renderPrompt(loadPromptTemplate(), 'Bank of Antarctica', defaultSettings('Bank of Antarctica'), { require_verification });
       expect(p).toContain('"Can I get your first and last name?"');
       expect(p).toContain('ask them to spell it, then read it back letter by letter. "That\'s N-G-U-Y-E-N, Nguyen?" Wait for a yes.');
       expect(p).toContain('"Got it, Sam Lee."');

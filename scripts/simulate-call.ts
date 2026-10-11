@@ -29,7 +29,7 @@ const HELP = `Simulate a Dial call against the Rung server (no phone needed).
   npm run simulate -- --org-token <token> --from +15555550188 --intent dispute --amount 12 \\
       --summary "Duplicate $12 charge at a coffee shop, wants it reversed." --name "Sam Okafor" --enroll
 
-  npm run demo:sim          replay the three demo calls into Demo Bank (finds its token itself)
+  npm run demo:sim          replay the three demo calls into Bank of Antarctica (finds its token itself)
 
 Options
   --base          server URL (default http://localhost:8787)
@@ -132,7 +132,7 @@ async function bankToken(): Promise<string> {
 
 async function demo(): Promise<void> {
   const orgToken = await bankToken();
-  console.log(`Demo Bank via /mcp/<token> on ${base}\n`);
+  console.log(`Bank of Antarctica via /mcp/<token> on ${base}\n`);
 
   console.log('Call 1: new caller, $12 card dispute (saves their details)');
   await runCall({
@@ -169,7 +169,7 @@ async function demo(): Promise<void> {
   const q = (await (await fetch(`${base}/api/queue`, { headers: auth })).json()) as {
     queued: Array<{ rank: number; name: string; intentLabel: string; amountUsd: number | null; score: { total: number }; reason: string }>;
   };
-  console.log('\nDemo Bank queue:');
+  console.log('\nBank of Antarctica queue:');
   for (const i of q.queued) console.log(`  #${i.rank}  ${String(i.score.total).padStart(3)}  ${i.name ?? '(no name)'} · ${i.reason}`);
 }
 

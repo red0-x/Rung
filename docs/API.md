@@ -10,7 +10,7 @@ The server (`server/`) and dashboard (`web/`) both build to this file. Change it
 
 - `/api/health` is public. Everything else under `/api/*` needs `Authorization: Bearer <token>`.
 - `<token>` = the Supabase access token (`session.access_token`). Server verifies with `supabase.auth.getUser(token)`.
-- Dev/test only (`ENABLE_DEV`, never in production): `Bearer dev:<email>` is accepted as that user. `dev:<DEMO_BANK_EMAIL>` is a member of Demo Bank, `dev:<DEMO_CLINIC_EMAIL>` of the clinic, in both memory and Supabase stores.
+- Dev/test only (`ENABLE_DEV`, never in production): `Bearer dev:<email>` is accepted as that user. `dev:<DEMO_BANK_EMAIL>` is a member of Bank of Antarctica, `dev:<DEMO_CLINIC_EMAIL>` of the clinic, in both memory and Supabase stores.
 - Errors: `401 {error:"unauthorized"}` (missing/bad token) · `403 {error:"no_org"}` (signed in, no org yet: send the user to `/setup`) · `404 {error:"not_found"}` (unknown id **or another org's id**) · `400 {error:"<code>", message?}` · `409 {error:"<code>"}`.
 
 ## Types
@@ -26,7 +26,7 @@ interface IntentRule { label: string; points: number; tier: Tier; sensitive: boo
 interface ValueTier { minUsd: number; points: number }
 
 interface OrgSettings {
-  greeting: string;          // first line the agent says, e.g. "Thanks for calling Demo Bank."
+  greeting: string;          // first line the agent says, e.g. "Thanks for calling Bank of Antarctica."
   tone: string;              // e.g. "warm, brief, plain English"
   intents: Record<Intent, IntentRule>;
   valueTiers: ValueTier[];   // ascending by minUsd

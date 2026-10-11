@@ -55,7 +55,7 @@ describe('MCP routing and security', () => {
   it('falls back to X-Dial-Agent-Number on plain /mcp, and 401s an unknown dialed number', async () => {
     await h.api('/org/number', { body: { numberId: 'mock_num_1' } });
     const call = await openSimCall({ baseUrl: h.base, phone: MARIA, agentNumber: '+15550000001' });
-    expect((await call.call('lookup_caller')).data).toMatchObject({ known: true, first_name: 'Maria', org_name: 'Demo Bank' });
+    expect((await call.call('lookup_caller')).data).toMatchObject({ known: true, first_name: 'Maria', org_name: 'Bank of Antarctica' });
     await call.close();
     expect((await rawPost(h.base, '/mcp', { 'x-dial-agent-number': '+15550009999' })).status).toBe(401);
   });
@@ -85,7 +85,7 @@ describe('MCP routing and security', () => {
       // With the secret, the dialed number picks the org.
       await s.api('/org/number', { body: { numberId: 'mock_num_2' }, as: CLINIC_EMAIL });
       const c = await openSimCall({ baseUrl: s.base, phone: MARIA, agentNumber: '+15550000002', secret: 'shh' });
-      expect((await c.call('lookup_caller')).data).toMatchObject({ name: 'Dana Brooks', org_name: 'Northside Clinic' });
+      expect((await c.call('lookup_caller')).data).toMatchObject({ name: 'Dana Brooks', org_name: 'Mango Clinic' });
       await c.close();
     } finally {
       await s.close();
@@ -136,7 +136,7 @@ describe('first call: enrollment', () => {
     expect((await call.call('send_code')).data.sent).toBe(true);
     expect(h.dial.sent).toHaveLength(1);
     expect(h.dial.sent[0]).toMatchObject({ to: NEW_CALLER, from: '+15550000001' });
-    expect(h.dial.sent[0]!.body).toMatch(/^Demo Bank: your verification code is \d{6}\./);
+    expect(h.dial.sent[0]!.body).toMatch(/^Bank of Antarctica: your verification code is \d{6}\./);
     expect(h.dial.sent[0]!.body).toMatch(/^[\x20-\x7E]+$/);
     const code = lastCode(h.dial);
 
@@ -221,7 +221,7 @@ describe('priority queue', () => {
     const fraud = await enqueue(MARIA, { intent: 'fraud_in_progress', amount_usd: 4200, summary: 'Unknown charges happening now.' });
 
     expect(fraud.data.position).toBe(1);
-    expect(fraud.data.say_to_caller).toContain('Demo Bank');
+    expect(fraud.data.say_to_caller).toContain('Bank of Antarctica');
     const q = await queue();
     expect(q.queued.map((i: any) => i.intent)).toEqual(['fraud_in_progress', 'account_opening', 'dispute']);
     expect(q.queued.map((i: any) => i.score.total)).toEqual([116, 60, 20]);
@@ -299,13 +299,13 @@ describe('tenancy isolation', () => {
   it('the same phone at two orgs has separate profiles, verification and queue items', async () => {
     const bankCall = await as(MARIA);
     const clinicCall = await as(MARIA, { orgToken: h.clinic.mcpToken });
-    expect((await bankCall.call('lookup_caller')).data).toMatchObject({ name: 'Maria Alvarez', org_name: 'Demo Bank' });
-    expect((await clinicCall.call('lookup_caller')).data).toMatchObject({ name: 'Dana Brooks', org_name: 'Northside Clinic' });
+    expect((await bankCall.call('lookup_caller')).data).toMatchObject({ name: 'Maria Alvarez', org_name: 'Bank of Antarctica' });
+    expect((await clinicCall.call('lookup_caller')).data).toMatchObject({ name: 'Dana Brooks', org_name: 'Mango Clinic' });
 
     // Verify at the bank only.
     await bankCall.call('send_code');
     const bankCode = lastCode(h.dial);
-    expect(h.dial.sent.at(-1)!.body).toContain('Demo Bank');
+    expect(h.dial.sent.at(-1)!.body).toContain('Bank of Antarctica');
     expect((await clinicCall.call('check_code', { code: bankCode })).data.verified).toBe(false);
     expect((await bankCall.call('check_code', { code: bankCode })).data.verified).toBe(true);
     // The bank verification does not authorize a sensitive request at the clinic.
@@ -385,7 +385,7 @@ describe('dashboard auth', () => {
 
   it('/api/me returns the org view with its MCP URL', async () => {
     const me = (await h.api('/me')).body;
-    expect(me.org).toMatchObject({ name: 'Demo Bank', slug: 'demo-bank', dialNumberMock: false, mcpUrl: `http://localhost:8787/mcp/${h.bank.mcpToken}` });
+    expect(me.org).toMatchObject({ name: 'Bank of Antarctica', slug: 'demo-bank', dialNumberMock: false, mcpUrl: `http://localhost:8787/mcp/${h.bank.mcpToken}` });
     expect(me.role).toBe('admin');
   });
 });
@@ -411,22 +411,22 @@ describe('numbers, prompt preview and publish', () => {
 
   it('previews the rendered prompt from saved settings and from an unsaved draft', async () => {
     const saved = (await h.api('/prompt-preview')).body.prompt;
-    expect(saved).toContain("Demo Bank's priority line");
+    expect(saved).toContain("Bank of Antarctica's priority line");
     expect(saved).not.toContain('{{');
     const draft = (await h.api('/prompt-preview', { body: { name: 'Draft Bank', settings: { greeting: 'Hello from Draft Bank.' } } })).body.prompt;
     expect(draft).toContain("Draft Bank's priority line");
     expect(draft).toContain('Hello from Draft Bank.');
-    expect((await h.api('/org')).body.org.name).toBe('Demo Bank'); // draft not saved
+    expect((await h.api('/org')).body.org.name).toBe('Bank of Antarctica'); // draft not saved
   });
 
   it('publish needs a number, then PATCHes /numbers/{id} with the rendered prompt (recorded by the mock)', async () => {
     expect((await h.api('/org/publish', { method: 'POST' })).body.error).toBe('no_number');
     await h.api('/org/number', { body: { numberId: 'mock_num_1' } });
-    await h.api('/org', { method: 'PATCH', body: { settings: { greeting: 'Welcome to Demo Bank, fraud line.' } } });
+    await h.api('/org', { method: 'PATCH', body: { settings: { greeting: 'Welcome to Bank of Antarctica, fraud line.' } } });
     const pub = await h.api('/org/publish', { method: 'POST' });
     expect(pub.status).toBe(200);
     expect(pub.body).toMatchObject({ ok: true, mock: true, numberId: 'mock_num_1', number: '+15550000001', request: { method: 'PATCH', path: '/numbers/mock_num_1' } });
-    expect(pub.body.request.body.inboundInstruction).toContain('Welcome to Demo Bank, fraud line.');
+    expect(pub.body.request.body.inboundInstruction).toContain('Welcome to Bank of Antarctica, fraud line.');
     expect(h.dial.patches).toEqual([{ numberId: 'mock_num_1', inboundInstruction: pub.body.request.body.inboundInstruction }]);
     const log = (await h.api('/dev/dial-log')).body;
     expect(log.mock).toBe(true);

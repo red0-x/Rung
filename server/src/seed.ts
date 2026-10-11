@@ -27,11 +27,11 @@ export interface SeedOrg {
  */
 export const SEED_ORGS: SeedOrg[] = [
   {
-    name: 'Demo Bank',
+    name: 'Bank of Antarctica',
     slug: 'demo-bank',
     memberEmailEnv: 'DEMO_BANK_EMAIL',
     defaultEmail: 'bank@rung.demo',
-    settings: { greeting: "Thanks for calling Demo Bank's priority line." },
+    settings: { greeting: "Thanks for calling Bank of Antarctica's priority line." },
     callers: [
       {
         phone: '+15555550101',
@@ -46,12 +46,12 @@ export const SEED_ORGS: SeedOrg[] = [
     ],
   },
   {
-    name: 'Northside Clinic',
+    name: 'Mango Clinic',
     slug: 'northside-clinic',
     memberEmailEnv: 'DEMO_CLINIC_EMAIL',
     defaultEmail: 'clinic@rung.demo',
     settings: {
-      greeting: 'Thanks for calling Northside Clinic.',
+      greeting: 'Thanks for calling Mango Clinic.',
       tone: 'calm, kind, unhurried',
       intents: {
         medical_emergency: { label: 'urgent symptoms' },

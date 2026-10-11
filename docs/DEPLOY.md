@@ -74,7 +74,7 @@ curl -X POST https://rung-liart.vercel.app/mcp -H 'content-type: application/jso
   -H 'accept: application/json, text/event-stream' -H "x-mcp-secret: $MCP_SHARED_SECRET" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'      # lookup_caller, save_profile, triage_call
 npm run simulate -- --base https://rung-liart.vercel.app --from +15555550101 \
-  --agent-number <bank's claimed number> --secret "$MCP_SHARED_SECRET"   # Maria at Demo Bank
+  --agent-number <bank's claimed number> --secret "$MCP_SHARED_SECRET"   # Maria at Bank of Antarctica
 ```
 
 (`demo:sim` uses dev auth, so it only works against a local dev server.)

@@ -89,7 +89,7 @@ call), then make the three calls: $12 dispute (new caller), fraud in progress $4
 3. Re-run Dial's tool discovery for the Context MCP (re-save it) so the agent sees the two new tools.
 4. In Setup, click **Publish to Dial** again: the prompt now includes the code steps.
 5. Test: call, save details, the text arrives from the org's number reading
-   `Demo Bank: your verification code is ######...` (plain ASCII). Keep `DEMO_SHOW_CODES=true` so the dashboard's
+   `Bank of Antarctica: your verification code is ######...` (plain ASCII). Keep `DEMO_SHOW_CODES=true` so the dashboard's
    "Texted codes" panel is a fallback if a text doesn't arrive; set it `false` to require real delivery.
 
 ## Troubleshooting
