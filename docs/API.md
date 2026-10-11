@@ -79,6 +79,10 @@ Tier labels: critical "Critical", high "High", normal "Normal", low "Low".
 | GET | `/api/queue/:id/transcript` | | `{transcript:string\|null, turns:[{speaker,text}]\|null}` |
 | POST | `/api/queue/:id/callback` | | `{phone, tel}` and status → `in_progress` |
 | POST | `/api/queue/:id/done` | | `{ok:true}` |
+| POST | `/api/queue/:id/release` | | Cancel a callback: `in_progress` → `queued`, `claimedAt` cleared, `createdAt` kept (caller keeps their place). `{ok:true}`; `409 not_in_progress` |
+| POST | `/api/queue/:id/reopen` | | Undo Done: `done` → `queued`, `doneAt` cleared, `createdAt` kept. `{ok:true}`; `409 not_done` |
+| GET | `/api/callers` | | `{callers: CallerRow[]}` everyone who has a profile OR any queue item at this org, newest activity first |
+| GET | `/api/history?limit=50` | | `{items: QueueItemView[]}` `done` items, newest `doneAt` first, any age (limit ≤ 200, default 50) |
 | GET | `/api/profiles` | | `{profiles:[{name, phoneMasked, createdAt, verified:boolean}]}` |
 | GET | `/api/dev/codes` | | `{codes:[{phoneMasked, code, expiresAt}]}` this org only; `404` unless `demoShowCodes` and `requireVerification` |
 | GET | `/api/dev/dial-log` | | `{mock:boolean, sms:[{toMasked, from, body, at}], patches:[{numberId, at, inboundInstruction}], callFetches:[{callId, at}]}` this org only |
@@ -124,3 +128,21 @@ interface QueueResponse {
 ## Webhooks
 
 `POST /webhooks/dial`: HMAC `X-Dial-Signature: t=<unix>,v1=<hex>` over `"{t}.{rawBody}"`, 5-min tolerance, dedupe `X-Dial-Event-ID`, 200 before processing.
+
+```ts
+// v3.1 additions
+interface CallerRow {
+  key: string;                 // opaque stable id (hash of org+phone); never the phone
+  name: string | null;         // profile name, else latest name given on a call
+  phoneMasked: string;
+  saved: boolean;              // has a profile (consented to be remembered)
+  trust: Trust;                // verified | recognized | new
+  callCount: number;           // queue items for this number at this org
+  lastCallAt: number | null;
+  lastIntentLabel: string | null;
+  lastTier: Tier | null;
+  lastSummary: string | null;
+  lastAmountUsd: number | null;
+  openStatus: 'queued' | 'in_progress' | null; // an active request right now
+}
+```
