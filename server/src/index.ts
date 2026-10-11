@@ -46,7 +46,10 @@ app.listen(cfg.port, '0.0.0.0', async () => {
   log(`Rung server on :${cfg.port}  env=${cfg.env}  store=${store.kind}  dial=${dial.mock ? 'mock' : 'live'}  devAuth=${cfg.enableDev}`);
   log('  Dial webhooks  POST /webhooks/dial');
   log('  Dashboard API  /api/*  (GET /api/health is public)');
-  log('  Context MCP URLs (register one per org in Dial):');
+  log(
+    `  Context MCP    POST ${cfg.publicUrl}/mcp  (one per Dial account; header X-Mcp-Secret${cfg.mcpSharedSecret ? '' : ' NOT SET'}; org from X-Dial-Agent-Number)`,
+  );
+  log('  Per-org MCP URLs (also accepted):');
   for (const org of await store.listOrgs()) {
     log(`    ${org.name.padEnd(20)} ${mcpUrl(cfg, org)}  number=${org.dialNumber ?? '(none)'}`);
   }
