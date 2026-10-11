@@ -4,7 +4,7 @@ owner:
 ---
 # Area: voice (Dial)
 
-Dial account, the Link phone number, the inbound prompt, Context MCP hookup, webhook registration. Reference: [[project/dial]].
+Dial account, each org's Rung phone number (pre-provisioned pool, claimed in the setup wizard), the inbound prompt, Context MCP hookup, webhook registration. Reference: [[project/dial]].
 
 ## Status
 - [ ] Dial installed, account + number

@@ -8,7 +8,7 @@ One vault, one git repo, many agents. Every human and every agent reads from and
 ## Read order
 
 1. [[agent-protocol]] — how agents read and write here (rules)
-2. [[project/overview]] — what Link is and what the demo must show
+2. [[project/overview]] — what Rung is and what the demo must show
 3. [[project/contracts]] — tool names, DB schema, API shapes everyone builds against
 4. [[project/architecture]] — how the parts connect
 5. [[team/owners]] — who owns what

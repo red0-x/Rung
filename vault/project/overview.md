@@ -1,9 +1,13 @@
 ---
 type: project
 ---
-# Link — overview
+# Rung — overview
 
-**Stripe Link for phone support.** You explain your problem once, verify with an SMS code, and every later call to a Link-enabled company starts with the agent already knowing who you are and why you're calling. Urgent calls get a human first; nobody waits on hold.
+**Stripe Link for phone support.** You explain your problem once, verify with an SMS code, and every later call to a Rung-enabled company starts with the agent already knowing who you are and why you're calling. Urgent calls get a human first; nobody waits on hold.
+
+Tagline: **"Your time, returned."** Subline: *Remembered callers. Callbacks instead of hold music.*
+
+**Multi-company (D5):** many companies, each with its own Rung (own Dial number, rules, callers, queue). A company signs in to the dashboard, sets up its Rung in `/setup`, and works its queue in `/queue`. Spec: `attachments/RUNG_CONTEXT.md`.
 
 Hackathon: SpeedHacks (a16z speedrun), Oct 11 2026. Challenge: "Give people their time back." Demos 9 PM.
 
@@ -29,6 +33,6 @@ Urgency first (fraud, lockout), value second, minutes waiting always adds points
 | Dial | Phone number, AI voice, SMS codes, Context MCP, webhooks | Core |
 | Keewano | Caller history store (fallback SQLite) | Stretch |
 | Alike | Agent-to-agent brief handoff to reps | Stretch |
-| Darwin | Make Link discoverable / intent routing | Stretch |
+| Darwin | Make Rung discoverable / intent routing | Stretch |
 
 Full plan doc: https://claude.ai/code/artifact/61c98035-8e28-44b2-8a15-c8b1df6c6744
