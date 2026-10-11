@@ -9,6 +9,8 @@ Rep view of the queue. Reads `GET /api/queue` ([[project/contracts#HTTP API (bac
 ## Status
 - [x] `/` landing (hero, phone, fragment collage, before/after) — 2026-10-11
 - [x] `/login` (Supabase Auth sign-in/up, dev sign-in in dev only)
+- [x] `/queue` "On the line now" strip: calls the voice agent is handling, step track, hands off into the queue — 2026-10-11
+- [x] `/insights`: "How this works" card cut to one footnote line — 2026-10-11
 - [x] `/queue` ranked ledger: FLIP reorder, score bars, live clocks, Call back / Done, transcripts, time-saved counter, Texted codes panel, Rules panel; polls 1.5 s
 - [x] `/setup` wizard: company, greeting/tone, rules, claim number, live prompt preview, Publish to Dial, MCP URL
 - [x] Verified against the real server + Supabase (bank demo user via dev token)

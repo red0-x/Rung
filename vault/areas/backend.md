@@ -22,6 +22,7 @@ One service: MCP server for Dial, webhook receiver, `/api/queue`. Owns [[project
 - [ ] Hello call from a real phone
 - [x] Multi-rep: atomic claims, `POST /api/queue/next`, claimer/admin permissions, presence + reps-online ETA, `DEMO_BANK_REPS` seeding — 2026-10-11
 - [x] Forget caller: `DELETE /api/callers/:key` (admin) — 2026-10-11
+- [x] Live calls: `live_calls` table (migration `20261012000000` pushed), MCP tools move the stage, `GET /api/queue` adds `live[]` — 2026-10-11
 - [x] Org invites (`POST /api/org/invites`, accepted on `/me`) + `X-Org-Id` org selection — 2026-10-11
 
 ## Public URL
