@@ -25,3 +25,5 @@ Docs: https://docs.getdial.ai (append `.md` to any page for plain text).
 ## Gotchas
 
 <!-- append: - <what happened> → <fix> (owner) -->
+- SMS works **Dial-to-Dial only** today; texts to regular phones need 10DLC registration (post-hackathon). → Real callers won't receive the code; demo uses the dashboard "Texted codes" panel (`DEMO_SHOW_CODES=true`, now the default). (jadon)
+- Hackathon quickstart: getdial.ai/hackathon/speedhacks/quickstart. API key in dashboard **Settings**; numbers in **Phone Numbers**; buy more with `dial number purchase`. New accounts: 5-min calls, 2 concurrent. (jadon)
