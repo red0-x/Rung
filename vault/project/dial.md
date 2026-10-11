@@ -30,3 +30,4 @@ Docs: https://docs.getdial.ai (append `.md` to any page for plain text).
 - REST base: both `https://api.getdial.ai/api/v1` and `/v1` answer `GET /numbers` with 200 (verified 2026-10-11). We use `/api/v1`. (jadon)
 - **Context MCPs are account-wide**, not per number: tools go to every call on the account. → Register ONE URL `<PUBLIC_URL>/mcp` with static header `X-Mcp-Secret`; server resolves the org from `X-Dial-Agent-Number`. (jadon)
 - An **iMessage number** sends through the same `POST /messages` and falls back to RCS/SMS. Ask at the Dial table for one: it may get codes to real iPhones without 10DLC. (jadon)
+- First real call (2026-10-11): full path worked (MCP triage → queue, `call.ended` + `call.transcribed` → duration + transcript). But the agent queued without asking the caller's name → dashboard "Unknown caller". → Prompt now requires name + spelling confirmation; `triage_call` returns `name_missing` guidance. (jadon)
