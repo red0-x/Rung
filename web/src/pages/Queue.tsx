@@ -54,8 +54,10 @@ export default function QueuePage() {
   const { me } = useAuth();
   const org = me?.org;
   const settings = org?.settings;
+  const requireVerification = me?.platform.requireVerification ?? false;
   const queue = usePoll(api.queue, 1500);
-  const codes = usePoll(api.codes, 2000, true, is404);
+  // Texted codes only exist when verification is on; the endpoint 404s otherwise.
+  const codes = usePoll(api.codes, 2000, requireVerification, is404);
   const now = useNow(1000);
 
   // Optimistic moves so Call back / Done respond instantly instead of waiting for the next poll.
@@ -326,9 +328,9 @@ export default function QueuePage() {
         </div>
       </div>
 
-      <aside className="q-rail" aria-label="Today">
-        {codes.data && !is404(codes.error) && <CodesCard codes={codes.data.codes} nowEst={nowEst} />}
-        {data ? <Timeline items={[...queued, ...inProgress, ...done]} /> : <div className="card sk-card" />}
+      <aside className={`q-rail${requireVerification ? '' : ' is-solo'}`} aria-label="Today">
+        {requireVerification && codes.data && !is404(codes.error) && <CodesCard codes={codes.data.codes} nowEst={nowEst} />}
+        {data ? <Timeline items={[...queued, ...inProgress, ...done]} requireVerification={requireVerification} /> : <div className="card sk-card" />}
       </aside>
 
       <Drawer open={rulesOpen} title="How ranking works" onClose={() => setRulesOpen(false)}>

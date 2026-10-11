@@ -89,7 +89,8 @@ const num = (v: string) => {
 };
 
 function Editor({ org }: { org: OrgView }) {
-  const { refreshMe } = useAuth();
+  const { refreshMe, me } = useAuth();
+  const requireVerification = me?.platform.requireVerification ?? false;
   const [draft, setDraft] = useState<Draft>(() => toDraft(org));
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -194,7 +195,14 @@ function Editor({ org }: { org: OrgView }) {
             </label>
           </Step>
 
-          <Step n="03" i={2} title="Ranking rules" tip="Score = urgency + value + waiting. Verify = caller must pass the text code first.">
+          <Step
+            n="03"
+            i={2}
+            title="Ranking rules"
+            tip={`Score = urgency + value + waiting. ${
+              requireVerification ? 'Verify = caller must pass the text code first.' : "Sensitive = the agent won't discuss details on the call."
+            }`}
+          >
             <div className="table-wrap">
               <table className="rules-table">
                 <thead>
@@ -202,7 +210,17 @@ function Editor({ org }: { org: OrgView }) {
                     <th scope="col">Intent</th>
                     <th scope="col">Points</th>
                     <th scope="col">Tier</th>
-                    <th scope="col" title="Sensitive: needs a verified caller">Verify</th>
+                    {requireVerification ? (
+                      <th scope="col" title="Sensitive: needs a verified caller">
+                        Verify
+                      </th>
+                    ) : (
+                      <th scope="col">
+                        <span className="th-tip" data-tip="Agent won't discuss details on the call; a specialist handles it on the callback" tabIndex={0}>
+                          Sensitive
+                        </span>
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>

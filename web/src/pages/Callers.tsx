@@ -1,6 +1,7 @@
 import { api } from '../api';
 import { ago } from '../format';
 import { useNow, usePoll } from '../hooks';
+import { useAuth } from '../auth';
 import { PageHeader, initials } from '../components/Shell';
 
 export default function CallersPage() {
@@ -8,11 +9,12 @@ export default function CallersPage() {
   const now = useNow(30_000);
   const list = profiles.data?.profiles ?? [];
   const verified = list.filter((p) => p.verified).length;
+  const requireVerification = useAuth().me?.platform.requireVerification ?? false;
   return (
     <div className="page-pad">
       <PageHeader
         title="Callers"
-        sentence={profiles.data ? `${list.length} remembered · ${verified} verified by text code` : ' '}
+        sentence={profiles.data ? `${list.length} remembered${requireVerification ? ` · ${verified} verified by text code` : ''}` : ' '}
       />
       {!profiles.data ? (
         <div className="callers-grid">
@@ -37,7 +39,9 @@ export default function CallersPage() {
                 <span className="muted tnum">{p.phoneMasked}</span>
               </span>
               <span className="caller-meta">
-                <span className={`chip${p.verified ? ' trust-verified' : ''}`}>{p.verified ? 'Verified' : 'Unverified'}</span>
+                {requireVerification && (
+                  <span className={`chip${p.verified ? ' trust-verified' : ''}`}>{p.verified ? 'Verified' : 'Unverified'}</span>
+                )}
                 <span className="muted small">since {ago(now - p.createdAt)}</span>
               </span>
             </li>

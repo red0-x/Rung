@@ -47,3 +47,17 @@ export function ago(ms: number): string {
   const h = Math.floor(m / 60);
   return `${h} h ago`;
 }
+
+/**
+ * Caller trust wording. With text-code verification off (the default), a verified
+ * caller reads the same as any recognized one: we never claim a check we didn't run.
+ */
+export function trustLabel(trust: Trust, requireVerification: boolean): string {
+  if (trust === 'new') return 'New caller';
+  if (trust === 'verified' && requireVerification) return 'Verified';
+  return 'Recognized';
+}
+/** CSS modifier for the trust chip, following the same rule. */
+export function trustClass(trust: Trust, requireVerification: boolean): string {
+  return trust === 'verified' && !requireVerification ? 'recognized' : trust;
+}

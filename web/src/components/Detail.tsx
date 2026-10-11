@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { capitalize, clock, usd } from '../format';
+import { capitalize, clock, trustClass, trustLabel, usd } from '../format';
+import { useAuth } from '../auth';
 import { useCountUp } from '../hooks';
 import type { QueueItemView } from '../types';
 import { Digits } from './Digits';
@@ -7,7 +8,6 @@ import { IconClose, IconPhone } from './Icons';
 import { Avatar, Transcript, liveAging } from './QueueRow';
 import { ScoreBar } from './ScoreBar';
 
-const TRUST: Record<QueueItemView['trust'], string> = { verified: 'Verified', recognized: 'Known number', new: 'New caller' };
 
 interface Props {
   item: QueueItemView;
@@ -25,6 +25,7 @@ interface Props {
 /** The selected caller's brief. Keyed by id so a selection change crossfades. */
 export function Detail({ item, nowEst, agingPerMin, agingCap, scaleMax, phone, busy, onCallBack, onDone, onClose }: Props) {
   const [showTranscript, setShowTranscript] = useState(false);
+  const requireVerification = useAuth().me?.platform.requireVerification ?? false;
   const inCall = item.status === 'in_progress';
   const aging = liveAging(item, nowEst, agingPerMin, agingCap);
   const { urgency, value } = item.score;
@@ -46,7 +47,7 @@ export function Detail({ item, nowEst, agingPerMin, agingCap, scaleMax, phone, b
             ) : (
               item.phoneMasked
             )}
-            <span className={`chip chip-trust trust-${item.trust}`}>{TRUST[item.trust]}</span>
+            <span className={`chip chip-trust trust-${trustClass(item.trust, requireVerification)}`}>{trustLabel(item.trust, requireVerification)}</span>
           </p>
         </div>
       </div>

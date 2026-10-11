@@ -2111,3 +2111,31 @@ code {
     animation: none !important;
   }
 }
+
+/* Verification off: the rail holds only the timeline, which runs the full height. */
+.q-rail.is-solo .timeline {
+  min-height: calc(100vh - 3rem);
+}
+.th-tip {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.th-tip[data-tip]::after {
+  /* Below the header: the table scroller would clip a tooltip above it. */
+  left: auto;
+  right: 0;
+  bottom: auto;
+  top: calc(100% + 6px);
+  transform: translateY(-4px);
+}
+@media (hover: hover) and (pointer: fine) {
+  .th-tip[data-tip]:hover::after {
+    transform: translateY(0);
+  }
+}
+@media (max-width: 1200px) {
+  .q-rail.is-solo .timeline {
+    min-height: 0;
+  }
+}

@@ -105,7 +105,7 @@ export interface MeResponse {
   user: { id: string; email: string };
   org: OrgView | null;
   role: 'admin' | null;
-  platform: { dial: DialMode; demoShowCodes: boolean; enableDev: boolean };
+  platform: { dial: DialMode; demoShowCodes: boolean; enableDev: boolean; requireVerification?: boolean };
 }
 
 export interface OrgResponse {

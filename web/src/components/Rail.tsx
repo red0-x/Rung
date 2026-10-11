@@ -13,7 +13,7 @@ interface Ev {
 
 const hhmm = (t: number) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-export function Timeline({ items }: { items: QueueItemView[] }) {
+export function Timeline({ items, requireVerification = false }: { items: QueueItemView[]; requireVerification?: boolean }) {
   const midnight = new Date();
   midnight.setHours(0, 0, 0, 0);
   const evs: Ev[] = [];
@@ -24,7 +24,7 @@ export function Timeline({ items }: { items: QueueItemView[] }) {
       at: i.createdAt,
       kind: 'in',
       title: `${name} called`,
-      sub: `${capitalize(i.intentLabel)} · ${i.trust === 'verified' ? 'verified' : i.trust === 'recognized' ? 'known number' : 'new caller'}`,
+      sub: `${capitalize(i.intentLabel)} · ${i.trust === 'new' ? 'new caller' : i.trust === 'verified' && requireVerification ? 'verified' : 'known caller'}`,
       tier: i.tier,
     });
     if (i.claimedAt) evs.push({ key: i.id + ':call', at: i.claimedAt, kind: 'call', title: `Called back ${name.split(' ')[0]}`, sub: `after ${clock(i.claimedAt - i.createdAt)}`, tier: i.tier });
