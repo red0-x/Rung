@@ -520,3 +520,39 @@
   .landing-flow-num { font-size: 88px; }
   .landing-cta-row { flex-direction: column; align-items: stretch; text-align: center; }
 }
+
+/* ---------- scroll effects shared with /wireframe (3D fly-in details, statement, ranked list, footer) ---------- */
+.landing-hero { position: relative; }
+.landing-fly { position: absolute; inset: 0; z-index: 4; perspective: 900px; perspective-origin: 50% 40%; pointer-events: none; }
+.landing-fly .wf-tile { --fade: clamp(0, calc((0.8 - var(--p, 0)) / 0.4), 1); font-size: clamp(8px, 0.72vw, 12px); }
+
+.wf-say-sm { height: 240vh; }
+.wf-say-sm .wf-big { font-size: clamp(28px, 3.8vw, 60px); max-width: 1120px; }
+.landing-root .wf-queue { padding: 14vh 32px 10vh; }
+.landing-root .wf-queue-inner { max-width: 1120px; gap: 5vh; }
+.landing-root .wf-queue .wf-h2 { font-size: clamp(32px, 4.4vw, 56px); }
+.landing-root .wf-qrow { padding: 16px 24px; }
+
+/* footer: dark sheet that closes the page */
+.landing-footer { max-width: none; margin: 0; padding: 0; border: 0; background: var(--ink); color: var(--ivory); border-radius: 44px 44px 0 0; }
+.landing-footer-in { max-width: 1120px; margin: 0 auto; padding: 88px 32px 36px; }
+.landing-footer-cta { display: flex; justify-content: space-between; align-items: flex-end; gap: 32px; flex-wrap: wrap; padding-bottom: 64px; border-bottom: 1px solid rgba(247, 247, 242, 0.18); }
+.landing-footer-cta h2 { font-size: clamp(44px, 8vw, 112px); }
+.landing-footer-cols { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 32px; padding: 48px 0 56px; font-size: 15px; }
+.landing-footer-cols h3 { font: 600 12px/1 var(--font); letter-spacing: 0.1em; text-transform: uppercase; color: rgba(247, 247, 242, 0.55); margin-bottom: 16px; }
+.landing-footer-cols a, .landing-footer-cols p { display: block; margin-bottom: 10px; }
+.landing-footer-cols nav a { transition: color 150ms ease; }
+.landing-footer-brand p { margin-top: 16px; max-width: 28ch; color: rgba(247, 247, 242, 0.6); }
+.landing-footer-base { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 13px; color: rgba(247, 247, 242, 0.5); }
+@media (hover: hover) and (pointer: fine) {
+  .landing-footer-cols nav a:hover { color: #8aa1ff; }
+}
+@media (max-width: 1040px) {
+  .landing-fly { display: none; }
+  .landing-footer-cols { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .landing-footer-in { padding: 64px 20px 28px; }
+  .landing-root .wf-queue { padding-left: 20px; padding-right: 20px; }
+  .landing-footer-cta .wf-btn { width: 100%; }
+}

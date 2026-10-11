@@ -1,11 +1,14 @@
 import { useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import '../brand.css';
+import '../wireframe/wireframe.css';
 import './landing.css';
 import Phone from './Phone';
 import MiniQueue from './MiniQueue';
 import { Arrows, PillPattern, Sparkles, Swash, CallerSeal } from './Doodles';
 import { useCallLoop, useCountUp, useReveal } from './motion';
 import { Logo } from '../brand/Logo';
+import { Tile, Cube } from '../wireframe/Tile';
+import { useScenes } from '../wireframe/useScenes';
 
 /** Inline style helper: --d (drift-in delay) and --r (resting rotation). */
 function drift(delayMs: number, rotateDeg = 0): CSSProperties {
@@ -19,6 +22,15 @@ function signupHref(email: string): string {
 
 const HEADLINE = ['Your', 'time,'];
 
+const STATEMENT = 'Your customers never wait on hold. Your team never starts a callback cold. Every call arrives ranked, briefed and ready.'.split(' ');
+
+const QUEUE = [
+  ['Maya Chen', 'Card declined at checkout', 'CRITICAL', 94, 'crit'],
+  ['Omar Haddad', 'Wire transfer stuck 3 days', 'HIGH', 78, 'high'],
+  ['Priya Nair', 'Update mailing address', 'NORMAL', 41, 'norm'],
+  ['Luis Ortega', 'Question about statement', 'LOW', 18, 'low'],
+];
+
 export default function Landing() {
   const [email, setEmail] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
@@ -27,6 +39,7 @@ export default function Landing() {
   const step = useCallLoop(stageRef);
   const minutes = useCountUp(statRef, 1231);
   useReveal(rootRef);
+  useScenes(rootRef);
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -34,7 +47,8 @@ export default function Landing() {
   }
 
   return (
-    <div className="landing-root" ref={rootRef}>
+    <div className="landing-root wf-root" ref={rootRef}>
+      <div className="wf-progress" aria-hidden="true" />
       <header className="landing-nav">
         <a className="landing-logo" href="/" aria-label="Rung home"><Logo size={28} title="Rung" /></a>
         <nav className="landing-nav-links" aria-label="Sections">
@@ -53,7 +67,31 @@ export default function Landing() {
       </header>
 
       <main>
-        <section className="landing-hero">
+        <section className="landing-hero" data-scene="leave" data-rest="0">
+          {/* side details that fly at the camera as the hero scrolls away */}
+          <div className="landing-fly" aria-hidden="true">
+            <Tile cls="wf-t-pink" x="1%" y="21%" w="min(9vw,130px)" fx={-16} fy={-6} fz={560} r={-8} fr={-12} k={1.2}>
+              <svg viewBox="0 0 200 130" className="wf-curve"><path d="M20 112 C 40 6, 160 6, 180 112" /><circle cx="20" cy="112" r="5" /><circle cx="180" cy="112" r="5" /></svg>
+            </Tile>
+            <Tile cls="wf-t-purple" x="90%" y="21%" w="min(8.5vw,125px)" fx={14} fy={-8} fz={520} r={6} k={1.8}>
+              <h6>Verification</h6><p><span className="wf-ok">✓</span> SMS code matched</p>
+            </Tile>
+            <Tile cls="wf-t-green" x="1.5%" y="35%" w="min(9vw,130px)" fx={-14} fy={4} fz={640} r={7} fr={9} k={2.4}>
+              <div className="wf-step"><i>‹</i><b>3</b><i>›</i></div><small>Rings before pickup</small>
+            </Tile>
+            <Tile cls="wf-t-lime" x="89%" y="36%" w="min(9vw,130px)" fx={16} fy={-4} fz={600} r={-7} fr={-9} k={1.6}>
+              <h6>Language</h6>
+              <div className="wf-chips"><span>EN</span><span className="on">ES</span><span>FR</span></div>
+            </Tile>
+            <Tile cls="wf-t-orange" x="1%" y="63%" w="min(9vw,130px)" fx={-12} fy={10} fz={420} r={-7} k={1.4}>
+              <div className="wf-pill-sel"><i>‹</i><span>Critical</span><i>›</i></div>
+            </Tile>
+            <Tile cls="wf-t-pink2" x="90%" y="66%" w="min(9vw,130px)" fx={12} fy={12} fz={580} r={8} fr={-10} k={2}>
+              <h6>Hold saved</h6><strong>1,231</strong><small>minutes</small>
+            </Tile>
+            <Cube cls="wf-cb-purple" x="93%" y="50%" fx={10} fy={-12} fz={700} r={14} s={2.2} />
+            <Cube cls="wf-cb-yellow" x="6%" y="50%" fx={-10} fy={6} fz={720} r={-12} s={2.4} />
+          </div>
           <p className="landing-eyebrow landing-drift" style={drift(0)}>
             <span className="landing-live-dot" aria-hidden="true" /> For customer support teams
           </p>
@@ -174,6 +212,33 @@ export default function Landing() {
           </ol>
         </section>
 
+        <section className="wf-say wf-say-sm" data-scene="pin" data-rest="1">
+          <div className="wf-say-stick">
+            <p className="wf-big" style={{ '--n': STATEMENT.length } as CSSProperties}>
+              {STATEMENT.map((w, i) => (
+                <span key={i} style={{ '--i': i } as CSSProperties}>{w} </span>
+              ))}
+            </p>
+          </div>
+        </section>
+
+        <section className="wf-queue" data-scene="pass" data-rest="0.5" aria-labelledby="landing-queue-title">
+          <div className="wf-queue-inner">
+            <h2 id="landing-queue-title" className="wf-display wf-h2">Ranked.<br />Not racing.</h2>
+            <div className="wf-qlist">
+              {QUEUE.map(([name, why, tag, score, tone], i) => (
+                <div key={name} className={`wf-qrow wf-q-${tone}`} style={{ '--i': i } as CSSProperties}>
+                  <span className="wf-qrank">{i + 1}</span>
+                  <div><b>{name}</b><p>{why}</p></div>
+                  <em>{tag}</em>
+                  <span className="wf-qscore"><i style={{ width: `${score}%` }} /></span>
+                  <strong>{score}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section className="landing-sides" id="teams" aria-labelledby="landing-sides-title">
           <div className="landing-section-head" data-reveal>
             <p className="landing-kicker">For teams, and the people they serve</p>
@@ -201,13 +266,36 @@ export default function Landing() {
       </main>
 
       <footer className="landing-footer" id="pricing">
-        <div className="landing-footer-row">
-          <a className="landing-logo" href="/" aria-label="Rung home"><Logo size={24} title="Rung" /></a>
-          <p className="landing-footer-tag">Remembered callers. Callbacks instead of hold music.</p>
-        </div>
-        <div className="landing-footer-row landing-footer-meta">
-          <p><strong>Pricing:</strong> your first line is free.</p>
-          <p className="landing-muted">Built at SpeedHacks 2026</p>
+        <div className="landing-footer-in">
+          <div className="landing-footer-cta">
+            <h2 className="wf-display">Your time,<br />returned.</h2>
+            <a className="wf-btn wf-btn-ivory wf-btn-xl" href="/login?signup">Set up your Rung</a>
+          </div>
+          <div className="landing-footer-cols">
+            <div className="landing-footer-brand">
+              <Logo size={26} title="Rung" />
+              <p>Remembered callers. Callbacks instead of hold music.</p>
+            </div>
+            <nav aria-label="Product">
+              <h3>Product</h3>
+              <a href="#how">How it works</a>
+              <a href="#teams">For teams</a>
+              <a href="#pricing">Pricing</a>
+            </nav>
+            <nav aria-label="Account">
+              <h3>Account</h3>
+              <a href="/login">Log in</a>
+              <a href="/login?signup">Get started</a>
+            </nav>
+            <div>
+              <h3>Pricing</h3>
+              <p>Your first line is free.</p>
+            </div>
+          </div>
+          <div className="landing-footer-base">
+            <span>© 2026 Rung</span>
+            <span>Built at SpeedHacks 2026</span>
+          </div>
         </div>
       </footer>
     </div>
