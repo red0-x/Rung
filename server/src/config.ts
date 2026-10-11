@@ -120,14 +120,11 @@ export function checkConfig(cfg: Config): { fatal: string[]; warnings: string[] 
   if (!cfg.dialWebhookSecret) {
     (prod ? fatal : warnings).push('DIAL_WEBHOOK_SECRET is not set: webhook signatures are not being verified.');
   }
-  // Per-org /mcp/<mcp_token> URLs are the MCP secret. The plain /mcp fallback (org by X-Dial-Agent-Number)
-  // needs MCP_SHARED_SECRET in production, otherwise it is disabled there.
+  // Dial attaches ONE Context MCP to the whole account: <PUBLIC_URL>/mcp with a static X-Mcp-Secret header,
+  // org resolved from X-Dial-Agent-Number. Per-org /mcp/<mcp_token> URLs keep working too.
   if (!cfg.mcpSharedSecret) {
-    warnings.push(
-      prod
-        ? 'MCP_SHARED_SECRET is not set: plain /mcp (agent-number fallback) is disabled; use per-org /mcp/<token> URLs.'
-        : 'MCP_SHARED_SECRET is not set: plain /mcp resolves the org from X-Dial-Agent-Number without a secret (dev only).',
-    );
+    if (prod) fatal.push('MCP_SHARED_SECRET is not set: Dial reaches /mcp with it as a static X-Mcp-Secret header.');
+    else warnings.push('MCP_SHARED_SECRET is not set: plain /mcp resolves the org from X-Dial-Agent-Number without a secret (dev only).');
   }
   if (cfg.store === 'supabase' && (!cfg.supabaseUrl || !cfg.supabaseServiceKey)) {
     fatal.push('STORE=supabase needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');

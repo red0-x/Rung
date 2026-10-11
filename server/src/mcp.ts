@@ -32,6 +32,16 @@ const fail = (error: string, message: string): CallToolResult => ({
   content: [{ type: 'text', text: JSON.stringify({ error, message }) }],
 });
 
+/** Plain ASCII only: non-GSM characters (em dashes, curly quotes, accents) cut carrier length limits. */
+export function smsText(s: string): string {
+  return s
+    .normalize('NFKD')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/[^\x20-\x7E]/g, '');
+}
+
 function relativeDay(then: number, now: number): string {
   const days = Math.floor((now - then) / 86_400_000);
   if (days <= 0) return 'earlier today';
@@ -117,7 +127,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
         try {
           await dial.sendSms(
             phone,
-            `${o.name}: your verification code is ${code}. It expires in 5 minutes. If you did not call us, ignore this text.`,
+            smsText(`${o.name}: your verification code is ${code}. It expires in 5 minutes. If you did not call us, ignore this text.`),
             o.dialNumber,
             { orgId: o.id },
           );
