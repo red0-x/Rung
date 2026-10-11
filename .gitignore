@@ -6,3 +6,18 @@ __pycache__/
 vault/.obsidian/workspace*.json
 vault/.obsidian/cache
 vault/.trash/
+
+# Root-level Obsidian per-device state
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.trash/
+.DS_Store
+
+# Build / local
+dist/
+.env.*
+!.env.example
+*.log
+server/seed.json
+.vercel
