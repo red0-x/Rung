@@ -12,6 +12,12 @@ const NAV = [
 
 const COLLAPSE_KEY = 'rung.sidebar';
 
+// Profile pictures for the demo orgs, keyed by slug (files in web/public/orgs/).
+const ORG_AVATARS: Record<string, string> = {
+  'demo-bank': '/orgs/demo-bank.png',
+  'northside-clinic': '/orgs/northside-clinic.png',
+};
+
 export function Shell({ path, children }: { path: string; children: ReactNode }) {
   const { me, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(() => {
@@ -29,7 +35,6 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
     }
   }, [collapsed]);
 
-  const dial = me?.platform.dial;
   const org = me?.org;
 
   return (
@@ -65,16 +70,10 @@ export function Shell({ path, children }: { path: string; children: ReactNode })
           ))}
         </nav>
         <div className="sb-foot">
-          {dial && (
-            <p className={`sb-dial dial-${dial}`} data-tip={dial === 'mock' ? 'Dial calls are recorded, not sent' : 'Connected to Dial'}>
-              <i className="dot" aria-hidden="true" />
-              <span className="sb-label">Dial: {dial}</span>
-            </p>
-          )}
           {org && (
             <p className="sb-org">
-              <span className="sb-avatar" aria-hidden="true">
-                {initials(org.name)}
+              <span className={`sb-avatar${ORG_AVATARS[org.slug] ? ' has-img' : ''}`} aria-hidden="true">
+                {ORG_AVATARS[org.slug] ? <img src={ORG_AVATARS[org.slug]} alt="" /> : initials(org.name)}
               </span>
               <span className="sb-label">{org.name}</span>
             </p>
