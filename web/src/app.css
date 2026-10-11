@@ -2845,3 +2845,73 @@ code {
 .section-head h2 {
   white-space: nowrap;
 }
+
+/* ── Keewano insights (rail card) ── */
+.q-rail.is-solo:has(.insights) .timeline {
+  min-height: 0;
+}
+.ins-badge[data-tip] {
+  cursor: help;
+}
+.ins-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.ins-head .card-title {
+  margin-bottom: 0 !important;
+}
+.ins-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--ivory);
+  font: 600 0.68rem/1.4 var(--font);
+  letter-spacing: 0.02em;
+}
+.ins-refresh {
+  margin-left: auto;
+  width: 2rem;
+  height: 2rem;
+}
+.ins-refresh.is-busy svg {
+  animation: ins-spin 900ms linear infinite;
+}
+@keyframes ins-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.ins-stats {
+  display: grid;
+  gap: 0.9rem;
+}
+.ins-stat + .ins-stat {
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+}
+.ins-stat-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.ins-stat-head b {
+  font: 300 1.35rem/1 var(--font);
+}
+.ins-tiers dd {
+  font-size: 1.05rem;
+}
+.insights .ins-foot {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ins-refresh.is-busy svg {
+    animation: none;
+  }
+}

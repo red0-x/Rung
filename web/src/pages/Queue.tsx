@@ -5,6 +5,7 @@ import { Detail, type BusyKind } from '../components/Detail';
 import { Toast, useToast } from '../components/Toast';
 import { Drawer } from '../components/Drawer';
 import { IconInfo } from '../components/Icons';
+import { InsightsCard } from '../components/Insights';
 import { ListRow, type RowFlag } from '../components/QueueRow';
 import { CodesCard, Timeline } from '../components/Rail';
 import { Rules } from '../components/Rules';
@@ -439,6 +440,7 @@ export default function QueuePage() {
 
       <aside className={`q-rail${requireVerification ? '' : ' is-solo'}`} aria-label="Today">
         {requireVerification && codes.data && !is404(codes.error) && <CodesCard codes={codes.data.codes} nowEst={nowEst} />}
+        <InsightsCard />
         {data ? <Timeline items={[...queued, ...inProgress, ...done]} requireVerification={requireVerification} onReopen={(id) => {
               const it = done.find((d) => d.id === id);
               if (it) void reopen(it);

@@ -11,10 +11,11 @@ One vault, one git repo, many agents. Every human and every agent reads from and
 2. [[project/overview]] — what Rung is and what the demo must show
 3. [[project/contracts]] — tool names, DB schema, API shapes everyone builds against
 4. [[project/architecture]] — how the parts connect
-5. [[project/caller-context]] (how the agent gets caller context and remembers them next call)
-6. [[team/owners]] — who owns what
-7. Your area file in `areas/`
-8. Newest files in `log/`
+5. [[project/demo-notes]] (what we show on stage, per sponsor; feeds the pitch)
+6. [[project/caller-context]] (how the agent gets caller context and remembers them next call)
+7. [[team/owners]] — who owns what
+8. Your area file in `areas/`
+9. Newest files in `log/`
 
 ## Map
 

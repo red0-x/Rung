@@ -120,6 +120,15 @@ export interface HealthResponse {
   time: number;
 }
 
+/** GET /api/insights: Keewano stats for this org. Always 200; `enabled: false` when Keewano is not configured. */
+export interface InsightsResponse {
+  enabled: boolean;
+  asOf: string | null;
+  stale: boolean;
+  items: Array<{ id: string; title: string; answer: string | null; error?: string }>;
+  note?: string;
+}
+
 export interface MeResponse {
   user: { id: string; email: string };
   org: OrgView | null;
