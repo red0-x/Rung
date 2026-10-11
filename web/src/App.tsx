@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useAuth } from './auth';
 import { Shell } from './components/Shell';
 import Landing from './landing/Landing';
+import Wireframe from './wireframe/Wireframe';
 import LoginPage from './pages/Login';
 import QueuePage from './pages/Queue';
 import CallersPage from './pages/Callers';
@@ -10,7 +11,7 @@ import { Redirect, linkClick, useLocation } from './router';
 
 export default function App() {
   const { path } = useLocation();
-  const isApp = path !== '/';
+  const isApp = path !== '/' && path !== '/wireframe';
 
   // Dashboard type scales with the screen (readable from the back of a room).
   // Scoped to app routes so the landing page keeps its own sizing.
@@ -19,6 +20,7 @@ export default function App() {
   }, [isApp]);
 
   if (path === '/') return <Landing />;
+  if (path === '/wireframe') return <Wireframe />;
   if (path === '/login') return <LoginPage />;
   if (path === '/queue' || path === '/setup' || path === '/callers') return <Protected path={path} />;
   return <NotFound />;
