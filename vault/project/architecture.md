@@ -9,7 +9,7 @@ flowchart LR
   Dial -- "mid-call tools (X-Dial-User-Number)" --> Backend[Link backend: MCP + API]
   Dial -- "webhooks: call.ended, call.transcribed" --> Backend
   Backend -- "SMS code" --> Dial
-  Backend <--> DB[(SQLite / Keewano)]
+  Backend <--> DB[(Supabase Postgres)]
   Backend -- "/api/queue" --> Dashboard[Rep dashboard]
   Dashboard --> Rep[Human rep] -- calls back --> Caller
   Backend -. stretch .-> Alike

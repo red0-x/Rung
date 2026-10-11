@@ -5,6 +5,10 @@ type: decisions
 
 Newest first. Append with [[templates/decision]]. Never edit an old one; supersede it.
 
+## D4 · Supabase Postgres is the backend DB (supersedes D1)
+- Why: hosted, shared by the whole team, no local DB file to lose; still behind the same tool/API contract.
+- Owner: backend · 2026-10-11
+
 ## D3 · Callbacks instead of live transfer
 - Why: Dial has no mid-call transfer; callbacks also kill hold time, which is the pitch.
 - Owner: team · 2026-10-11

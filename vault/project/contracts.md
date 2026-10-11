@@ -1,7 +1,7 @@
 ---
 type: contract
 owner: backend
-version: 1
+version: 2
 ---
 # Contracts
 
@@ -21,15 +21,21 @@ The caller is never a tool argument: read it from the `X-Dial-User-Number` heade
 
 Tools must answer fast (no LLM calls inside them): silence on a phone call is awkward.
 
-## Database (SQLite, `data/link.db`)
+## Database (Supabase Postgres, project `Rung`)
+
+Schema lives in `supabase/migrations/`. Change it with a new migration, then `supabase db push`.
+Only the backend talks to the DB, using the service-role key. RLS is on with no policies, so the anon key gets nothing.
+The dashboard still reads through `/api/queue`, never the DB directly.
 
 ```sql
-profiles(phone TEXT PRIMARY KEY, name TEXT, notes TEXT, verified_at TEXT, created_at TEXT)
-calls(id INTEGER PRIMARY KEY, phone TEXT, dial_call_id TEXT, intent TEXT, category TEXT,
-      amount_usd REAL, urgency INTEGER, summary TEXT, brief TEXT, reason TEXT,
-      status TEXT DEFAULT 'queued',  -- queued | called_back | done
-      created_at TEXT)
-otps(phone TEXT PRIMARY KEY, code TEXT, expires_at TEXT)
+profiles(phone text PRIMARY KEY, name text, notes text, verified_at timestamptz, created_at timestamptz DEFAULT now())
+calls(id bigint IDENTITY PRIMARY KEY, phone text, dial_call_id text, intent text,
+      category text,      -- fraud | lockout | new_account | dispute | other (CHECK)
+      amount_usd numeric, urgency smallint,  -- 1..3 (CHECK)
+      summary text, brief text, reason text,
+      status text DEFAULT 'queued',  -- queued | called_back | done (CHECK)
+      created_at timestamptz DEFAULT now())
+otps(phone text PRIMARY KEY, code text, expires_at timestamptz)
 ```
 
 ## Scoring
@@ -50,4 +56,6 @@ otps(phone TEXT PRIMARY KEY, code TEXT, expires_at TEXT)
 
 ## Env (`.env`, gitignored)
 
-`DIAL_API_KEY`, `DIAL_NUMBER`, `DIAL_WEBHOOK_SECRET`, `PUBLIC_URL`, `PORT`
+`DIAL_API_KEY`, `DIAL_NUMBER`, `DIAL_WEBHOOK_SECRET`, `PUBLIC_URL`, `PORT`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+
+Ask the backend owner for the Supabase values. Never put them in the vault.
