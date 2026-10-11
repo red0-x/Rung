@@ -23,3 +23,8 @@ One service: MCP server for Dial, webhook receiver, `/api/queue`. Owns [[project
 <!-- current base URL; update when it changes -->
 
 ## Requests
+
+## Deploy setup (2026-10-11)
+- GitHub: `jadonli09/rung` (private) is the deploy repo; `red0-x/Rung` stays the team/vault remote. Push `main` to both.
+- Vercel project `rung` (Jadon Li's projects) builds from `jadonli09/rung` `main` → https://rung-liart.vercel.app. Web + server on one URL.
+- Supabase project `Rung` GitHub integration → `jadonli09/rung`, dir `supabase`: migrations on `main` apply to production.
