@@ -155,14 +155,14 @@ async function demo(): Promise<void> {
     },
   });
 
-  console.log('\nCall 3: returning caller James, wants to open a $10M account');
+  console.log('\nCall 3: returning caller James, wants to open a $200K account');
   await runCall({
     from: '+15555550102',
     orgToken,
     triage: {
       intent: 'account_opening',
-      amount_usd: 10_000_000,
-      summary: 'James wants to open a $10M operating account for his holding company this week.',
+      amount_usd: 200_000,
+      summary: 'James wants to open a $200K operating account for his holding company this week.',
     },
   });
 

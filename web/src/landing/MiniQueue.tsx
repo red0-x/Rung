@@ -13,7 +13,7 @@ type Row = {
 
 const ROWS: Record<string, Row> = {
   maria: { id: 'maria', intent: 'Suspected fraud', name: 'Maria R.', amount: '$4,200', tier: 'critical', u: 62, v: 14, a: 6 },
-  dev: { id: 'dev', intent: 'Open account', name: 'Dev P.', amount: '$10M', tier: 'normal', u: 22, v: 44, a: 8 },
+  dev: { id: 'dev', intent: 'Open account', name: 'Dev P.', amount: '$200K', tier: 'normal', u: 22, v: 35, a: 8 },
   sam: { id: 'sam', intent: 'Card dispute', name: 'Sam K.', amount: '$12', tier: 'low', u: 18, v: 4, a: 30 },
 };
 

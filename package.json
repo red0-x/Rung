@@ -2,8 +2,13 @@
   "name": "rung",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["server", "web"],
-  "engines": { "node": ">=22" },
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev:server": "npm run dev -w server",
     "dev:web": "npm run dev -w web",
@@ -11,6 +16,7 @@
     "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
     "build:web": "npm run build -w web",
     "simulate": "npm run simulate -w server --",
-    "demo:sim": "npm run demo:sim -w server"
+    "demo:sim": "npm run demo:sim -w server",
+    "demo:reset": "node --env-file=.env scripts/demo-reset.mjs"
   }
 }

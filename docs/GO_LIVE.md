@@ -78,8 +78,8 @@ token is accepted as the secret, org still comes from the agent number).
    a duration and a transcript.
 
 For the scripted demo, put teammates' real numbers in the bank as returning callers (or let them enroll on a first
-call), then make the three calls: $12 dispute (new caller), fraud in progress $4,200 (returning), $10M account opening
-(returning). Queue order: fraud (116) > $10M (60) > $12 (20).
+call), then make the three calls: $12 dispute (new caller), fraud in progress $4,200 (returning), $200K account opening
+(returning). Queue order: fraud (116) > $200K (52) > $12 (20).
 
 ## 7. Turning texted-code verification back on (after 10DLC)
 

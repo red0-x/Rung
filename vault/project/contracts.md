@@ -34,7 +34,7 @@ OTP: 6 digits, hashed, 5 min TTL, 5 attempts, 3 sends / 10 min, verified for 10 
 `score = urgency(intent) + value(amount) + min(minutes_waiting × agingPerMin, agingCap)`
 - Urgency: fraud/medical 100, locked_out 60, payment_issue 40, money_movement 35, account_change 25, dispute 20, account_opening 20, general/other 10.
 - Value tiers: $100=8, $1k=16, $10k=24, $100k=32, $1M=40. Aging 2/min, cap 150. All editable per org in `/setup`.
-- Demo: fraud $4,200 = 116, $10M opening = 60, $12 dispute = 20. After 45 min the dispute beats a fresh $10M opening.
+- Demo: fraud $4,200 = 116, $200K opening = 52, $12 dispute = 20. After 20 min the dispute beats a fresh $200K opening.
 - Reason: `Urgent: suspected fraud · $4,200 · waited 6 min · +12 aging`.
 - Callback estimate = `ceil(position × avgHandleMin ÷ reps)`, reps = members online (dashboard polled in the last 60 s), else `repsOnShift`.
 - Time saved per caller = `baselineHoldMin (23) + reexplainMin (3) if returning`.

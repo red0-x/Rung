@@ -22,7 +22,7 @@ Hackathon: SpeedHacks (a16z speedrun), Oct 11 2026. Challenge: "Give people thei
 
 ## Demo customer: a bank
 
-Seed callers: a $10M account opening, a fraud-in-progress caller, a $12 duplicate-charge dispute. Pre-enroll two.
+Seed callers: a $200K account opening, a fraud-in-progress caller, a $12 duplicate-charge dispute. Pre-enroll two.
 
 ## Priority = urgency + value + waiting
 
