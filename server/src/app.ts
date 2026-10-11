@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { waitUntil } from '@vercel/functions';
 import cors from 'cors';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
@@ -188,6 +189,7 @@ export function createApp(deps: AppDeps): Express {
       dial: dial.mock ? 'mock' : 'live',
       webhookVerify: !!cfg.dialWebhookSecret,
       mcpAuth: !!cfg.mcpSharedSecret,
+      keewano: deps.keewano ? deps.keewano.stats() : { enabled: false },
       time: now(),
     });
   });
@@ -420,6 +422,9 @@ export function createApp(deps: AppDeps): Express {
     const item = await ownItem(res, String(req.params.id));
     if (!item) return;
     await store.updateQueueItem(item.id, { status: 'in_progress', claimedAt: now() });
+    const org = orgOf(res);
+    deps.keewano?.track('callback_made', org.slug, item.phone, scoreItem(item, now(), org.settings).tier);
+    if (cfg.inlineWebhooks && deps.keewano) waitUntil(deps.keewano.flush().catch(() => {}));
     log(`[${orgOf(res).slug}] callback claimed ${item.id} by ${L(res).user.email}`);
     res.json({ phone: item.phone, tel: `tel:${item.phone}` });
   });
@@ -428,6 +433,9 @@ export function createApp(deps: AppDeps): Express {
     const item = await ownItem(res, String(req.params.id));
     if (!item) return;
     await store.updateQueueItem(item.id, { status: 'done', doneAt: now() });
+    const org = orgOf(res);
+    deps.keewano?.track('call_done', org.slug, item.phone, scoreItem(item, now(), org.settings).tier);
+    if (cfg.inlineWebhooks && deps.keewano) waitUntil(deps.keewano.flush().catch(() => {}));
     res.json({ ok: true });
   });
 
@@ -506,6 +514,21 @@ export function createApp(deps: AppDeps): Express {
     const t = now();
     const items = await store.listQueueItems(org.id, { statuses: ['done'], orderBy: 'doneAt', limit });
     res.json({ items: items.map((item) => view({ item, score: scoreItem(item, t, org.settings) }, null, org.settings)) });
+  });
+
+  /** Keewano-powered plain-English stats for this org. Cached; ?refresh=1 re-asks (rate limited). Always 200. */
+  api.get('/insights', async (req, res) => {
+    const k = deps.keewano;
+    if (!k) {
+      res.json({ enabled: false, asOf: null, stale: false, items: [], note: 'Keewano is not configured.' });
+      return;
+    }
+    try {
+      res.json(await k.insights(orgOf(res).slug, { refresh: req.query.refresh === '1' }));
+    } catch (err) {
+      log(`insights failed: ${(err as Error).message}`);
+      res.json({ enabled: true, asOf: null, stale: true, items: [], note: 'Insights are unavailable right now.' });
+    }
   });
 
   api.get('/profiles', async (_req, res) => {

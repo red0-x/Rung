@@ -4,6 +4,8 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import type { Config } from './config.js';
 import type { DialClient } from './dial.js';
+import type { Keewano } from './keewano.js';
+import { waitUntil } from '@vercel/functions';
 import { maskPhone, type CallerCtx } from './identity.js';
 import { RateLimitError, type OtpService } from './otp.js';
 import { rankQueued } from './queue.js';
@@ -22,6 +24,8 @@ export interface Deps {
   cfg: Config;
   now: () => number;
   log: (msg: string) => void;
+  /** Optional analytics; never blocks or fails a tool call. */
+  keewano?: Keewano;
 }
 
 /** A second triage_call from the same number inside this window updates the waiting item instead of adding a duplicate. */
@@ -80,6 +84,13 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       return { err: fail('not_allowed', 'This tool is only available on inbound calls.') };
     }
     return { phone: ctx.phone, org };
+  };
+  /** Fire-and-forget. On Vercel, waitUntil keeps the function alive for delivery without delaying the tool reply. */
+  const emit = (event: Parameters<Keewano['track']>[0], o: Org, phone: string, qualifier?: string) => {
+    const k = deps.keewano;
+    if (!k?.enabled) return;
+    k.track(event, o.slug, phone, qualifier);
+    if (cfg.inlineWebhooks) waitUntil(k.flush().catch(() => {}));
   };
   const tag = (o: Org, phone: string) => `[${o.slug}] ${maskPhone(phone, '*')}`;
 
@@ -160,6 +171,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
           '(confirm the spelling if it is long or unusual) and pass it to triage_call as caller_name. Then offer to remember them by this number.';
       }
 
+      emit('call_started', o, phone, profile ? 'known' : 'new');
       log(`lookup_caller ${tag(o, phone)} known=${!!profile} calls=${history.total} open=${openRequest?.status ?? 'none'}`);
       return ok({
         known: !!profile,
@@ -217,6 +229,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
           // Demo-day fallback: the code is on the dashboard, so the call can continue.
           log(`send_code ${tag(o, phone)} sms FAILED, continuing because demo codes are on: ${(err as Error).message}`);
         }
+        emit('code_sent', o, phone);
         log(`send_code ${tag(o, phone)}`);
         return ok({
           sent: true,
@@ -245,6 +258,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       const { org: o, phone } = id;
       const res = await otp.verify(o.id, phone, code);
       log(`check_code ${tag(o, phone)} ${res.ok ? 'ok' : res.reason}`);
+      emit(res.ok ? 'code_verified' : 'code_failed', o, phone);
       if (res.ok) {
         return ok({ verified: true, guidance: 'Verified. Continue with what the caller needs.' });
       }
@@ -306,6 +320,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       // Backfill the request this caller just made, if it was queued without a name.
       const open = await store.latestQueueItemForPhone(o.id, phone, ['queued', 'in_progress']);
       if (open && !open.name) await store.updateQueueItem(open.id, { name: clean });
+      emit('profile_saved', o, phone);
       log(`save_profile ${tag(o, phone)}`);
       return ok({
         saved: true,
@@ -419,6 +434,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       const eta = texted0 ? item.etaMinutes! : estimateCallbackMinutes(position, s.avgHandleMin, s.repsOnShift);
       const etaAt = texted0 ? item.etaAt! : t + eta * 60_000;
       const score = scoreItem(item, t, s);
+      emit('call_queued', o, phone, score.tier);
       log(`triage_call ${tag(o, phone)} ${intent} -> #${position} (${score.total} pts)`);
 
       // The request is saved. Record the exact promise (minutes + clock time), then text it once.

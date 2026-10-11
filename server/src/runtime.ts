@@ -3,6 +3,7 @@ import { createApp } from './app.js';
 import { createAuth, type Auth } from './auth.js';
 import type { Config } from './config.js';
 import { createDialClient, withLog } from './dial.js';
+import { KeewanoClient, noopKeewano } from './keewano.js';
 import { createOtpService } from './otp.js';
 import { reseedOrg, type SeedDeps } from './seed.js';
 import { createMemoryStore } from './store/memory.js';
@@ -26,7 +27,21 @@ export function createRuntime(cfg: Config, env: Record<string, string | undefine
   const dial = withLog(createDialClient(cfg));
   const otp = createOtpService(store, { trackDemoCodes: cfg.demoShowCodes });
   const seedDeps = (): SeedDeps => ({ store, auth, env, now: Date.now(), log });
+  const keewano =
+    cfg.keewanoSdkKey || cfg.keewanoAccessToken
+      ? new KeewanoClient({
+          sdkKey: cfg.keewanoSdkKey,
+          accessToken: cfg.keewanoAccessToken,
+          projectId: cfg.keewanoProjectId,
+          apiUrl: cfg.keewanoApiUrl,
+          hashSecret: cfg.keewanoHashSecret,
+          dailyLimit: cfg.keewanoMcpDailyLimit,
+          ttlMs: cfg.keewanoInsightsTtlMin * 60_000,
+          log,
+        })
+      : noopKeewano;
   const app = createApp({
+    keewano,
     store,
     otp,
     dial,

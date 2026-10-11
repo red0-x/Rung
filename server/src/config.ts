@@ -39,6 +39,16 @@ export interface Config {
   demoClinicEmail: string;
   corsOrigin: string;
   promptTemplatePath?: string;
+  /** Keewano analytics (optional). SDK key sends call events; access token powers the dashboard Insights. */
+  keewanoSdkKey?: string;
+  keewanoAccessToken?: string;
+  keewanoProjectId?: string;
+  keewanoApiUrl: string;
+  /** Keewano MCP questions per UTC day. Free plan 25; 0 = unlimited (after #SpeedHacks). */
+  keewanoMcpDailyLimit: number;
+  keewanoInsightsTtlMin: number;
+  /** Secret that pseudonymizes caller ids sent to Keewano. */
+  keewanoHashSecret: string;
 }
 
 type Env = Record<string, string | undefined>;
@@ -117,6 +127,13 @@ export function loadConfig(env: Env = process.env): Config {
     demoClinicEmail: (str(env.DEMO_CLINIC_EMAIL) ?? 'clinic@rung.demo').toLowerCase(),
     corsOrigin: str(env.CORS_ORIGIN) ?? '*',
     promptTemplatePath: str(env.PROMPT_TEMPLATE_PATH),
+    keewanoSdkKey: str(env.KEEWANO_SDK_KEY),
+    keewanoAccessToken: str(env.KEEWANO_ACCESS_TOKEN),
+    keewanoProjectId: str(env.KEEWANO_PROJECT_ID),
+    keewanoApiUrl: (str(env.KEEWANO_API_URL) ?? 'https://api.keewano.com').replace(/\/+$/, ''),
+    keewanoMcpDailyLimit: num(env.KEEWANO_MCP_DAILY_LIMIT, 25),
+    keewanoInsightsTtlMin: num(env.KEEWANO_INSIGHTS_TTL_MIN, 10),
+    keewanoHashSecret: str(env.KEEWANO_HASH_SECRET) ?? str(env.MCP_SHARED_SECRET) ?? 'rung-keewano',
   };
 }
 

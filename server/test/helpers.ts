@@ -2,6 +2,7 @@ import type { AddressInfo } from 'node:net';
 import { createApp } from '../src/app.js';
 import { createAuth } from '../src/auth.js';
 import { loadConfig, type Config } from '../src/config.js';
+import type { Keewano } from '../src/keewano.js';
 import { createMockDial, withLog, type DialClient, type DialLog, type MockDial } from '../src/dial.js';
 import { createOtpService } from '../src/otp.js';
 import { reseedOrg, seedAll, type SeedDeps } from '../src/seed.js';
@@ -32,7 +33,7 @@ export interface Harness {
   close(): Promise<void>;
 }
 
-export async function boot(env: Record<string, string> = {}): Promise<Harness> {
+export async function boot(env: Record<string, string> = {}, keewano?: Keewano): Promise<Harness> {
   const fullEnv = {
     NODE_ENV: 'test',
     STORE: 'memory',
@@ -54,6 +55,7 @@ export async function boot(env: Record<string, string> = {}): Promise<Harness> {
   const seedDeps = (): SeedDeps => ({ store, auth, env: fullEnv, now: clock.t, log: () => {} });
   const [bank, clinic] = await seedAll(seedDeps());
   const app = createApp({
+    keewano,
     store,
     otp,
     dial: logged,
