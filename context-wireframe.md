@@ -11,15 +11,21 @@ Status: partial implementation on `main`, 2026-10-11. The requested call story i
 ## Current work
 
 - `/` landing: added 3D fly tiles around existing hero, progress bar, smaller dark statement, ranked callback list, full dark footer. Reused the original wireframe Tile + scroll-scene hook. Landing existing phone/mini queue still there, not yet replaced with requested iOS/new/returning stories.
-- `/wireframe`: restyled `wireframe.css` toward live brand. **The TSX and `story.css` are still old**: old neon-style phone has transcript inside, wrong story, old classes `wf-btn-cyan`, `wf-btn-grey` removed in CSS. This route needs finishing, not just polish.
-- Extracted `Tile`/`Cube` to `web/src/wireframe/Tile.tsx`. Modified `useScenes.ts`: `data-scene="leave"` for hero and `data-beats`, `data-clock` for upcoming story. `data-at`/`data-talk`/`data-phase` old story hook behavior was removed; so old `/wireframe` story does not animate correctly until rewritten. Better to replace `Wireframe.tsx` story and `story.css` with new composition.
+- `/wireframe`: restyled `wireframe.css` toward live brand. **The TSX and `story.css` are still old**: old neon-style phone has transcript inside, wrong story. The old button classes were changed to the new ink/ghost/ivory pills. This route needs finishing, not just polish.
+- Extracted `Tile`/`Cube` to `web/src/wireframe/Tile.tsx`. Modified `useScenes.ts`: `data-scene="leave"` for hero and `data-beats`, `data-clock` for upcoming story. The old `data-at`/`data-talk`/`data-phase` logic was restored for compatibility until the story gets replaced.
 - `web/src/landing/Landing.tsx`, `landing.css`, `web/src/wireframe/{Tile.tsx,Wireframe.tsx,useScenes.ts,wireframe.css}` are mine. Do not touch unrelated `vault/` edits, these predated this task.
 
 ## Visual checks
 
 - Built with `cd web && npm run build` on 2026-10-11: passes, one existing >500kB chunk warning.
-- Used Vite preview at localhost:4173 and Playwright headless screenshots (under `$JCODE_SCRATCH_DIR/s0.png`, `s400.png`, `s3000.png`, `s3800.png`, `s5275.png`). Desktop 1440x900: hero tiles avoid headline, statement is smaller, ranked list matches sample. Footer CTA text was invisible initially due to `.wf-root :where(a)` specificity and fixed with `!important` in `.wf-btn-ivory`; rescreenshot not yet taken. Mobile **not checked**. `landing-fly` currently hidden at widths <=1040px.
+- Used Vite preview at localhost:4173 and Playwright headless screenshots (under `$JCODE_SCRATCH_DIR/s0.png`, `s400.png`, `s3000.png`, `s3800.png`, `s5275.png`, and `390-landing-top.png`, `390-wireframe-story.png`). Desktop 1440x900: hero tiles avoid headline, statement is smaller, ranked list matches sample. At 390px, landing headline/CTA/phone are readable. Neither route has horizontal overflow at 390px or 1440px. Footer CTA text/color verified at both widths. `/wireframe` phase reaches `dash`, but its mobile story is still a tiny old neon phone above a queue, not the requested design. `landing-fly` currently hidden at widths <=1040px.
 - Current landing hero fly tiles use `data-scene="leave"` (progress starts after section's top scrolls out); check whether effect feels strong enough. It is not pinned like old wireframe hero, but stage content and sections remain usable.
+
+## Interpretation choices to confirm
+
+- I read "apply parts of the current wireframe style to the current hero" as changing the live `/` landing page while keeping `/wireframe` as a separate work-in-progress. That is why both routes changed. If intent was only `/wireframe`, move or drop the landing additions.
+- I read "normal iMessage call dialog" as an ordinary iOS **Phone** incoming/connected call UI, not SMS chat bubbles. The transcript belongs beneath the device. This is still to be implemented.
+- The sample figures and queue names in the landing additions are illustrative wireframe content, not live analytics. Label them as demo data if this becomes public-facing production copy.
 
 ## Product truth: avoid misleading copy
 

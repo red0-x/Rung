@@ -60,7 +60,7 @@ export default function Wireframe() {
         </nav>
         <span className="wf-nav-actions">
           <a href="/login" className="wf-login">Login</a>
-          <a href="/login?signup" className="wf-btn wf-btn-cyan wf-btn-sm">Start for free</a>
+          <a href="/login?signup" className="wf-btn wf-btn-ink wf-btn-sm">Start for free</a>
         </span>
       </header>
 
@@ -78,10 +78,10 @@ export default function Wireframe() {
                 brief for every call. Nobody waits on hold.
               </p>
               <div className="wf-cta-row">
-                <a className="wf-btn wf-btn-cyan wf-btn-xl" href="/login?signup">
+                <a className="wf-btn wf-btn-ink wf-btn-xl" href="/login?signup">
                   <span className="wf-btn-mark"><Logo variant="mark" size={22} title="" /></span> Explore the platform
                 </a>
-                <a className="wf-btn wf-btn-grey wf-btn-xl" href="#story">See a call happen</a>
+                <a className="wf-btn wf-btn-ghost wf-btn-xl" href="#story">See a call happen</a>
               </div>
             </div>
 
@@ -130,7 +130,7 @@ export default function Wireframe() {
                 <h6>Verification</h6><p>✓ SMS code matched</p>
               </Tile>
               <Tile cls="wf-t-green" x="11%" y="67%" w="min(12vw,170px)" fx={-18} fy={8} fz={700} r={8} fr={10} k={2.4}>
-                <div className="wf-step"><i>‹</i><b>3</b><i>›</i></div><small>Rings before pickup</small>
+                <div className="wf-step"><i>‹</i><b>1</b><i>›</i></div><small>Rings before pickup</small>
               </Tile>
               <Tile cls="wf-t-orange" x="3%" y="80%" w="min(19vw,270px)" fx={-16} fy={14} fz={450} r={-9} k={1.4}>
                 <div className="wf-pill-sel"><i>‹</i><span>Critical</span><i>›</i></div>
@@ -307,7 +307,7 @@ export default function Wireframe() {
           </Tile>
           <div className="wf-end-copy">
             <h2 className="wf-display wf-h1">Your time,<br />returned.</h2>
-            <a className="wf-btn wf-btn-cyan wf-btn-xl" href="/login?signup">Start for free</a>
+            <a className="wf-btn wf-btn-ivory wf-btn-xl" href="/login?signup">Start for free</a>
           </div>
         </section>
       </main>

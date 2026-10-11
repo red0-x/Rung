@@ -77,7 +77,7 @@ export default function Landing() {
               <h6>Verification</h6><p><span className="wf-ok">✓</span> SMS code matched</p>
             </Tile>
             <Tile cls="wf-t-green" x="1.5%" y="35%" w="min(9vw,130px)" fx={-14} fy={4} fz={640} r={7} fr={9} k={2.4}>
-              <div className="wf-step"><i>‹</i><b>3</b><i>›</i></div><small>Rings before pickup</small>
+              <div className="wf-step"><i>‹</i><b>1</b><i>›</i></div><small>Rings before pickup</small>
             </Tile>
             <Tile cls="wf-t-lime" x="89%" y="36%" w="min(9vw,130px)" fx={16} fy={-4} fz={600} r={-7} fr={-9} k={1.6}>
               <h6>Language</h6>

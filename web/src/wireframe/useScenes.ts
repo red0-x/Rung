@@ -48,6 +48,14 @@ export function useScenes(root: RefObject<HTMLElement | null>): void {
         const beats = nums(d.beats);
         if (beats) s.style.setProperty('--beat', String(beats.filter((t) => t <= p).length));
 
+        // Keep the original /wireframe story running until its new call sequence is built.
+        const at = nums(d.at);
+        if (at) {
+          const lines = at.filter((t) => t <= p).length;
+          d.talk = !lines || p > 0.56 ? '' : lines % 2 ? 'a' : 'c';
+          d.phase = p < 0.06 ? 'ring' : p < 0.56 ? 'call' : 'dash';
+        }
+
         for (const c of clocks.get(s) ?? []) {
           const [a, b, n] = nums(c.dataset.clock) as [number, number, number];
           const k = clamp((p - a) / (b - a));
