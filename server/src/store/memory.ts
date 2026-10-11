@@ -124,7 +124,7 @@ export function createMemoryStore(): Store {
     async listQueueItems(orgId, opts) {
       const list = [...items.values()]
         .filter((i) => i.orgId === orgId && matches(i, opts?.statuses) && (opts?.since === undefined || i.createdAt >= opts.since))
-        .sort(newestFirst)
+        .sort(opts?.orderBy === 'doneAt' ? (a, b) => (b.doneAt ?? -Infinity) - (a.doneAt ?? -Infinity) || newestFirst(a, b) : newestFirst)
         .map(clone);
       return opts?.limit ? list.slice(0, opts.limit) : list;
     },

@@ -269,6 +269,7 @@ export function createSupabaseStore(sb: SupabaseClient): Store {
       let q = sb.from('queue_items').select('*').eq('org_id', orgId);
       if (opts?.statuses) q = q.in('status', opts.statuses);
       if (opts?.since !== undefined) q = q.gte('created_at', iso(opts.since));
+      if (opts?.orderBy === 'doneAt') q = q.order('done_at', { ascending: false, nullsFirst: false });
       q = q.order('created_at', { ascending: false });
       if (opts?.limit) q = q.limit(opts.limit);
       return (must(await q) ?? []).map(rowToItem);
