@@ -15,12 +15,15 @@ One service: MCP server for Dial, webhook receiver, `/api/queue`. Owns [[project
   - [x] `npm run demo:sim` fills the bank queue fraud > $10M > $12; 65 tests green
   - [x] `docs/DEPLOY.md`, `docs/GO_LIVE.md`, `docs/inbound-prompt.md`
 - [x] Dial API key works; REST base `/api/v1` verified; 1 number in `DIAL_NUMBER_POOL`
-- [ ] Second Dial number (clinic) — ideally an iMessage number
-- [ ] Deploy server (Railway/Render/Fly) → post URL below
-- [ ] Register webhook + one Context MCP (`/mcp` + `X-Mcp-Secret`), Publish prompt, hello call
+- [x] Second Dial number; Demo Bank = +16184644253, Northside Clinic = +15717200334 (claimed + prompts published) — 2026-10-11
+- [x] Deployed on Vercel (web + server, one URL) — 2026-10-11
+- [x] Dial webhook (call.ended, call.transcribed) → `/webhooks/dial`, signature verified in prod
+- [x] Dial Context MCP "Rung" → `/mcp` + `X-Mcp-Secret`: connected, 3 tools; prod lookup_caller greets Maria (bank) / Dana (clinic)
+- [ ] Hello call from a real phone
 
 ## Public URL
 <!-- current base URL; update when it changes -->
+https://rung-liart.vercel.app  (dashboard, `/api`, `/mcp`, `/webhooks/dial`)
 
 ## Requests
 
