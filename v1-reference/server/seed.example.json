@@ -1,0 +1,27 @@
+{
+  "profiles": [
+    {
+      "phone": "+15555550101",
+      "name": "Reid Calloway",
+      "history": [
+        {
+          "intent": "dispute",
+          "amountUsd": 38,
+          "summary": "Disputed a duplicate $38 card charge from a grocery store.",
+          "daysAgo": 5
+        }
+      ]
+    },
+    {
+      "phone": "+15555550102",
+      "name": "Maya Chen",
+      "history": [
+        {
+          "intent": "account_change",
+          "summary": "Asked to update her mailing address after moving.",
+          "daysAgo": 12
+        }
+      ]
+    }
+  ]
+}
