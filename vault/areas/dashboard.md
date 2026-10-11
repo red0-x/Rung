@@ -17,6 +17,6 @@ Rep view of the queue. Reads `GET /api/queue` ([[project/contracts#HTTP API (bac
 - [x] Queue redesign, Cancel/Reopen, Callers + History tables — 2026-10-11
 - [x] Multi-rep: Take next, "<rep> · on call" rows, teammate briefs view-only, reps-online pill — 2026-10-11
 
-- [x] Keewano "Last 24 h" Insights card in the queue rail (`GET /api/insights`); demo run of show in [[project/demo-notes]] — 2026-10-11
+- [x] Keewano Insights: own `/insights` tab, "Powered by Keewano" (`GET /api/insights`); moved out of the queue rail; demo run of show in [[project/demo-notes]] — 2026-10-11
 
 ## Requests

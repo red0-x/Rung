@@ -2,11 +2,12 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../auth';
 import { linkClick, navigate } from '../router';
 import { BrandLogo } from './BrandLogo';
-import { IconCallers, IconCollapse, IconLogout, IconPeople, IconQueue, IconSetup } from './Icons';
+import { IconCallers, IconCollapse, IconInsights, IconLogout, IconPeople, IconQueue, IconSetup } from './Icons';
 
 const NAV = [
   { href: '/queue', label: 'Queue', Icon: IconQueue },
   { href: '/callers', label: 'Callers', Icon: IconCallers },
+  { href: '/insights', label: 'Insights', Icon: IconInsights },
   { href: '/setup', label: 'Setup', Icon: IconSetup },
 ];
 

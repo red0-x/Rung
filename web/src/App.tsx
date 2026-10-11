@@ -6,6 +6,7 @@ import Wireframe from './wireframe/Wireframe';
 import LoginPage from './pages/Login';
 import QueuePage from './pages/Queue';
 import CallersPage from './pages/Callers';
+import InsightsPage from './pages/Insights';
 import SetupPage from './pages/Setup';
 import { Redirect, linkClick, useLocation } from './router';
 
@@ -22,11 +23,11 @@ export default function App() {
   if (path === '/') return <Landing />;
   if (path === '/wireframe') return <Wireframe />;
   if (path === '/login') return <LoginPage />;
-  if (path === '/queue' || path === '/setup' || path === '/callers') return <Protected path={path} />;
+  if (path === '/queue' || path === '/setup' || path === '/callers' || path === '/insights') return <Protected path={path} />;
   return <NotFound />;
 }
 
-function Protected({ path }: { path: '/queue' | '/setup' | '/callers' }) {
+function Protected({ path }: { path: '/queue' | '/setup' | '/callers' | '/insights' }) {
   const { ready, session, me, meError, refreshMe, signOut } = useAuth();
 
   if (!ready) return <Splash />;
@@ -57,7 +58,7 @@ function Protected({ path }: { path: '/queue' | '/setup' | '/callers' }) {
 
   return (
     <div className="app">
-      <Shell path={path}>{path === '/queue' ? <QueuePage /> : path === '/callers' ? <CallersPage /> : <SetupPage />}</Shell>
+      <Shell path={path}>{path === '/queue' ? <QueuePage /> : path === '/callers' ? <CallersPage /> : path === '/insights' ? <InsightsPage /> : <SetupPage />}</Shell>
     </div>
   );
 }
