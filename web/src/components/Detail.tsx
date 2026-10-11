@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { capitalize, clock, trustClass, trustLabel, usd } from '../format';
 import { useAuth } from '../auth';
+import { capitalize, clock, usd } from '../format';
 import { useCountUp } from '../hooks';
 import type { QueueItemView } from '../types';
 import { Digits } from './Digits';
 import { IconClose, IconPhone } from './Icons';
-import { Avatar, Transcript, liveAging } from './QueueRow';
+import { Transcript, liveAging } from './QueueRow';
 import { ScoreBar } from './ScoreBar';
 
+export type BusyKind = 'call' | 'done' | 'release';
 
 interface Props {
   item: QueueItemView;
@@ -15,73 +16,72 @@ interface Props {
   agingPerMin: number;
   agingCap: number;
   scaleMax: number;
+  etaMin: number;
   phone?: { phone: string; tel: string };
-  busy: boolean;
+  busy: BusyKind | null;
   onCallBack: (item: QueueItemView) => void;
   onDone: (item: QueueItemView) => void;
+  onRelease: (item: QueueItemView) => void;
   onClose: () => void;
 }
 
 /** The selected caller's brief. Keyed by id so a selection change crossfades. */
-export function Detail({ item, nowEst, agingPerMin, agingCap, scaleMax, phone, busy, onCallBack, onDone, onClose }: Props) {
+export function Detail({ item, nowEst, agingPerMin, agingCap, scaleMax, etaMin, phone, busy, onCallBack, onDone, onRelease, onClose }: Props) {
   const [showTranscript, setShowTranscript] = useState(false);
   const requireVerification = useAuth().me?.platform.requireVerification ?? false;
   const inCall = item.status === 'in_progress';
   const aging = liveAging(item, nowEst, agingPerMin, agingCap);
   const { urgency, value } = item.score;
   const total = useCountUp(urgency + value + Math.floor(aging), 500);
+  const trust = item.trust === 'new' ? 'New caller' : item.trust === 'verified' && requireVerification ? 'Verified' : 'Recognized';
 
   return (
     <div className={`detail-body tier-${item.tier}`}>
       <button type="button" className="icon-btn detail-close" aria-label="Close" onClick={onClose}>
         <IconClose />
       </button>
-      <div className="detail-head">
-        <Avatar item={item} size="lg" />
+      <div className="detail-top">
         <div className="detail-who">
-          <p className="eyebrow">{inCall ? 'On a call' : `Rank #${item.rank}`}</p>
-          <h2 className="detail-name">{item.name ?? 'Unknown caller'}</h2>
+          <h3 className={`detail-name${item.name ? '' : ' unknown-name'}`}>{item.name ?? 'Unknown caller'}</h3>
           <p className="detail-phone tnum">
-            {phone ? (
-              <span className="revealed">{phone.phone}</span>
-            ) : (
-              item.phoneMasked
-            )}
-            <span className={`chip chip-trust trust-${trustClass(item.trust, requireVerification)}`}>{trustLabel(item.trust, requireVerification)}</span>
+            {phone ? <span className="revealed">{phone.phone}</span> : item.phoneMasked}
+            <span aria-hidden="true"> · </span>
+            {trust}
           </p>
         </div>
+        <span className="id-pill tnum">{inCall ? 'On a call' : `#${item.rank} · ${total} pts`}</span>
       </div>
 
       <div className="chips">
-        <span className={`chip chip-tier tier-${item.tier}`}>
-          <i className="tier-dot" aria-hidden="true" />
-          {item.tierLabel}
-        </span>
         <span className="chip">{capitalize(item.intentLabel)}</span>
         {item.amountUsd != null && <span className="chip tnum">{usd(item.amountUsd)}</span>}
-        {item.returning && <span className="chip">Returning</span>}
+        <span className="chip">{item.returning ? 'Returning' : 'First call'}</span>
       </div>
 
-      <p className="detail-brief">{item.summary}</p>
-
-      <div className="detail-score" data-tip={item.reason}>
-        <div className="score-top">
-          <span className="eyebrow">Priority</span>
-          <span className="score-total tnum">{total}</span>
+      <dl className="facts">
+        <div>
+          <dt>Issue</dt>
+          <dd>{item.summary}</dd>
         </div>
-        <ScoreBar urgency={urgency} value={value} aging={aging} scaleMax={scaleMax} label={item.reason} />
-        <p className="legend tnum">
-          <span>
-            <i className="sw sw-urgency" /> Urgency {urgency}
-          </span>
-          <span>
-            <i className="sw sw-value" /> Value {value}
-          </span>
-          <span>
-            <i className="sw sw-aging" /> Waiting {Math.floor(aging)}
-          </span>
-        </p>
-      </div>
+        <div>
+          <dt>{inCall ? 'On call' : 'Waiting'}</dt>
+          <dd className="tnum">
+            <Digits text={clock(nowEst - (inCall ? (item.claimedAt ?? nowEst) : item.createdAt))} />
+            {!inCall && <span className="muted"> · callback in ~{etaMin} min</span>}
+          </dd>
+        </div>
+        <div>
+          <dt>Priority</dt>
+          <dd className="fact-score">
+            <ScoreBar urgency={urgency} value={value} aging={aging} scaleMax={scaleMax} label={item.reason} />
+            <span className="tnum">{total}</span>
+          </dd>
+        </div>
+        <div>
+          <dt>Reason</dt>
+          <dd className="muted">{item.reason}</dd>
+        </div>
+      </dl>
 
       {item.hasTranscript && (
         <div>
@@ -95,28 +95,28 @@ export function Detail({ item, nowEst, agingPerMin, agingCap, scaleMax, phone, b
       <div className="detail-actions">
         {inCall ? (
           <>
-            {phone ? (
+            {phone && (
               <a className="btn btn-primary btn-lg dial-link" href={phone.tel.startsWith('tel:') ? phone.tel : `tel:${phone.phone}`}>
                 <IconPhone /> <span className="tnum">{phone.phone}</span>
               </a>
-            ) : (
-              <span className="muted tnum">
-                On call <Digits text={clock(nowEst - (item.claimedAt ?? nowEst))} />
-              </span>
             )}
-            <button type="button" className="btn btn-lg" disabled={busy} onClick={() => onDone(item)}>
-              {busy ? 'Finishing…' : 'Done'}
+            <button type="button" className={`btn btn-lg${phone ? '' : ' btn-ink'}`} disabled={!!busy} onClick={() => onDone(item)}>
+              {busy === 'done' ? 'Finishing…' : 'Done'}
+            </button>
+            <button
+              type="button"
+              className="ghost-btn"
+              disabled={!!busy}
+              onClick={() => onRelease(item)}
+              data-tip="Hide the number and put them back in the queue at their place"
+            >
+              {busy === 'release' ? 'Cancelling…' : 'Cancel callback'}
             </button>
           </>
         ) : (
-          <>
-            <button type="button" className="btn btn-primary btn-lg" disabled={busy} onClick={() => onCallBack(item)}>
-              <IconPhone /> {busy ? 'Connecting…' : 'Call back'}
-            </button>
-            <span className="muted tnum wait-inline">
-              waiting <Digits text={clock(nowEst - item.createdAt)} />
-            </span>
-          </>
+          <button type="button" className="btn btn-primary btn-lg" disabled={!!busy} onClick={() => onCallBack(item)}>
+            <IconPhone /> {busy === 'call' ? 'Connecting…' : 'Call back'}
+          </button>
         )}
       </div>
     </div>

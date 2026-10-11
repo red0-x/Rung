@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, api, apiBase, errorText } from '../api';
 import { useAuth } from '../auth';
-import { Detail } from '../components/Detail';
+import { Detail, type BusyKind } from '../components/Detail';
+import { Toast, useToast } from '../components/Toast';
 import { Drawer } from '../components/Drawer';
 import { IconInfo } from '../components/Icons';
 import { ListRow, type RowFlag } from '../components/QueueRow';
@@ -23,6 +24,8 @@ const EXIT_MS = 280;
  */
 function useRankFlags(queued: QueueItemView[] | undefined): Record<string, RowFlag> {
   const prev = useRef<string[] | null>(null);
+  // Ids ever shown: a cancelled or reopened callback coming back isn't "new".
+  const seen = useRef(new Set<string>());
   const [flags, setFlags] = useState<Record<string, RowFlag>>({});
   const key = queued?.map((i) => i.id).join(',');
 
@@ -34,12 +37,14 @@ function useRankFlags(queued: QueueItemView[] | undefined): Record<string, RowFl
       const add: Record<string, RowFlag> = {};
       now.forEach((id, idx) => {
         const was = before.indexOf(id);
-        if (was === -1) add[id] = { kind: 'new', until: Date.now() + FLAG_MS };
-        else if (before.slice(0, was).some((other) => now.indexOf(other) > idx)) add[id] = { kind: 'up', from: was + 1, until: Date.now() + FLAG_MS };
+        if (was === -1) {
+          if (!seen.current.has(id)) add[id] = { kind: 'new', until: Date.now() + FLAG_MS };
+        } else if (before.slice(0, was).some((other) => now.indexOf(other) > idx)) add[id] = { kind: 'up', from: was + 1, until: Date.now() + FLAG_MS };
       });
       if (Object.keys(add).length) setFlags((f) => ({ ...f, ...add }));
     }
     prev.current = now;
+    now.forEach((id) => seen.current.add(id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
@@ -48,7 +53,9 @@ function useRankFlags(queued: QueueItemView[] | undefined): Record<string, RowFl
 
 const is404 = (e: unknown) => e instanceof ApiError && e.status === 404;
 
-type Local = { status: 'in_progress' | 'done'; item: QueueItemView; at: number };
+type Local = { status: 'queued' | 'in_progress' | 'done'; item: QueueItemView; at: number };
+type Busy = { id: string; kind: BusyKind } | null;
+type Filter = 'all' | 'waiting' | 'call';
 
 export default function QueuePage() {
   const { me } = useAuth();
@@ -63,8 +70,9 @@ export default function QueuePage() {
   // Optimistic moves so Call back / Done respond instantly instead of waiting for the next poll.
   const [local, setLocal] = useState<Record<string, Local>>({});
   const [phones, setPhones] = useState<Record<string, { phone: string; tel: string }>>({});
-  const [busy, setBusy] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<Busy>(null);
+  const [filter, setFilter] = useState<Filter>('all');
+  const { toast, show: showToast, hide: hideToast } = useToast();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Until someone picks a caller, the brief follows whoever is #1.
   const [pinned, setPinned] = useState(false);
@@ -82,30 +90,38 @@ export default function QueuePage() {
   const { queued, inProgress, done } = useMemo(() => {
     if (!data) return { queued: [] as QueueItemView[], inProgress: [] as QueueItemView[], done: [] as QueueItemView[] };
     const loc = Object.values(local);
-    const q = data.queued.filter((i) => !local[i.id]).map((i, k) => ({ ...i, rank: k + 1 }));
-    const settled = new Set([...data.inProgress, ...data.done].map((i) => i.id));
+    const is = (id: string, st: Local['status']) => !local[id] || local[id]!.status === st;
+    const sQ = new Set(data.queued.map((i) => i.id));
+    const sIP = new Set(data.inProgress.map((i) => i.id));
+    const sD = new Set(data.done.map((i) => i.id));
+    // Released / reopened callers re-enter at their score's place until the server confirms.
+    const back = loc
+      .filter((l) => l.status === 'queued' && !sQ.has(l.item.id))
+      .map((l) => ({ ...l.item, status: 'queued' as const, claimedAt: null, doneAt: null }));
+    let q = data.queued.filter((i) => is(i.id, 'queued'));
+    if (back.length) q = [...q, ...back].sort((a, b) => b.score.total - a.score.total);
     const ip = [
-      ...data.inProgress.filter((i) => local[i.id]?.status !== 'done'),
-      ...loc.filter((l) => l.status === 'in_progress' && !settled.has(l.item.id)).map((l) => ({ ...l.item, status: 'in_progress' as const, claimedAt: l.at })),
+      ...data.inProgress.filter((i) => is(i.id, 'in_progress')),
+      ...loc.filter((l) => l.status === 'in_progress' && !sIP.has(l.item.id)).map((l) => ({ ...l.item, status: 'in_progress' as const, claimedAt: l.at })),
     ];
-    const doneIds = new Set(data.done.map((i) => i.id));
     const d = [
-      ...loc.filter((l) => l.status === 'done' && !doneIds.has(l.item.id)).map((l) => ({ ...l.item, status: 'done' as const, doneAt: l.at })),
-      ...data.done,
+      ...loc.filter((l) => l.status === 'done' && !sD.has(l.item.id)).map((l) => ({ ...l.item, status: 'done' as const, doneAt: l.at })),
+      ...data.done.filter((i) => is(i.id, 'done')),
     ];
-    return { queued: q, inProgress: ip, done: d };
+    return { queued: q.map((i, k) => ({ ...i, rank: k + 1 })), inProgress: ip, done: d };
   }, [data, local]);
 
   // Drop optimistic entries once the server agrees (or after 20 s).
   useEffect(() => {
     if (!data) return;
     setLocal((cur) => {
-      const ip = new Set(data.inProgress.map((i) => i.id));
-      const dn = new Set(data.done.map((i) => i.id));
+      const sQ = new Set(data.queued.map((i) => i.id));
+      const sIP = new Set(data.inProgress.map((i) => i.id));
+      const sD = new Set(data.done.map((i) => i.id));
       let changed = false;
       const next: Record<string, Local> = {};
       for (const [id, l] of Object.entries(cur)) {
-        const settled = l.status === 'done' ? dn.has(id) : ip.has(id) || dn.has(id);
+        const settled = l.status === 'queued' ? sQ.has(id) : l.status === 'done' ? sD.has(id) : sIP.has(id) || sD.has(id);
         if (settled || Date.now() - l.at > 20_000) {
           changed = true;
           continue;
@@ -115,6 +131,35 @@ export default function QueuePage() {
       return changed ? next : cur;
     });
   }, [data]);
+
+  /** Apply an optimistic move, run the request, roll back and say so if it fails. */
+  const move = useCallback(
+    async (item: QueueItemView, status: Local['status'], kind: BusyKind, run: () => Promise<unknown>, failText: string) => {
+      let prev: Local | undefined;
+      setLocal((l) => {
+        prev = l[item.id];
+        return { ...l, [item.id]: { status, item, at: Date.now() } };
+      });
+      setBusy({ id: item.id, kind });
+      try {
+        await run();
+        queue.refresh();
+        return true;
+      } catch (err) {
+        setLocal((l) => {
+          const next = { ...l };
+          if (prev) next[item.id] = prev;
+          else delete next[item.id];
+          return next;
+        });
+        showToast({ text: `${failText} ${errorText(err)}`, tone: 'error' });
+        return false;
+      } finally {
+        setBusy(null);
+      }
+    },
+    [queue, showToast],
+  );
 
   const flags = useRankFlags(data ? queued : undefined);
   const rows = usePresence(queued, (i) => i.id, EXIT_MS);
@@ -133,10 +178,11 @@ export default function QueuePage() {
     if (selected && selected.id !== selectedId) setSelectedId(selected.id);
   }, [selected, selectedId, held, pinned]);
 
+  const firstName = (i: QueueItemView) => i.name?.split(' ')[0] ?? 'The caller';
+
   const claim = useCallback(
     async (item: QueueItemView) => {
-      setBusy(item.id);
-      setActionError(null);
+      setBusy({ id: item.id, kind: 'call' });
       try {
         const res = await api.callback(item.id);
         setPhones((p) => ({ ...p, [item.id]: res }));
@@ -144,35 +190,52 @@ export default function QueuePage() {
         pick(item.id);
         queue.refresh();
       } catch (err) {
-        setActionError(`Could not start the callback. ${errorText(err)}`);
+        showToast({ text: `Could not start the callback. ${errorText(err)}`, tone: 'error' });
       } finally {
         setBusy(null);
       }
     },
-    [queue, pick],
+    [queue, pick, showToast],
+  );
+
+  const reopen = useCallback(
+    async (item: QueueItemView) => {
+      const ok = await move(item, 'queued', 'release', () => api.reopen(item.id), 'Could not reopen.');
+      if (ok) showToast({ text: `${firstName(item)} is back in the queue.` });
+    },
+    [move, showToast],
   );
 
   const finish = useCallback(
     async (item: QueueItemView) => {
-      setBusy(item.id);
-      setActionError(null);
-      try {
-        await api.done(item.id);
-        setLocal((l) => ({ ...l, [item.id]: { status: 'done', item, at: Date.now() } }));
-        queue.refresh();
-      } catch (err) {
-        setActionError(`Could not mark the call done. ${errorText(err)}`);
-      } finally {
-        setBusy(null);
+      const ok = await move(item, 'done', 'done', () => api.done(item.id), 'Could not mark the call done.');
+      if (ok) {
+        setPhones(({ [item.id]: _gone, ...rest }) => rest);
+        showToast({ text: `${firstName(item)} marked done.`, action: { label: 'Reopen', run: () => void reopen(item) } });
       }
     },
-    [queue],
+    [move, showToast, reopen],
+  );
+
+  const release = useCallback(
+    async (item: QueueItemView) => {
+      const phone = phones[item.id];
+      setPhones(({ [item.id]: _gone, ...rest }) => rest);
+      const ok = await move(item, 'queued', 'release', () => api.release(item.id), 'Could not cancel the callback.');
+      if (ok) showToast({ text: `Callback cancelled. ${firstName(item)} keeps their place in the queue.` });
+      else if (phone) setPhones((p) => ({ ...p, [item.id]: phone }));
+    },
+    [move, phones, showToast],
   );
 
   // Keyboard: up/down moves the selection, Enter calls back. Instant, no animation.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
+      if (e.key === 'Escape' && sheetOpen) {
+        setSheetOpen(false);
+        return;
+      }
       if (t && (t.closest('input, textarea, select, [contenteditable]') || rulesOpen)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -191,7 +254,9 @@ export default function QueuePage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [order, selected, busy, claim, rulesOpen, pick]);
+  }, [order, selected, busy, claim, rulesOpen, pick, sheetOpen]);
+
+  const firstVisibleId = filter === 'waiting' ? queued[0]?.id : filter === 'call' ? inProgress[0]?.id : (inProgress[0] ?? queued[0])?.id;
 
   const longestMin = queued.length ? Math.floor(Math.max(...queued.map((i) => nowEst - i.createdAt)) / 60_000) : 0;
   const sentence = !data
@@ -217,11 +282,6 @@ export default function QueuePage() {
               : `Can't reach ${apiBase}. Retrying.`}
           </p>
         )}
-        {actionError && (
-          <p className="banner" role="alert">
-            {actionError}
-          </p>
-        )}
 
         <div className="tiles">
           {data ? (
@@ -240,8 +300,16 @@ export default function QueuePage() {
           <section className="md-list" aria-labelledby="list-h">
             <div className="section-head">
               <h2 id="list-h">Callback queue</h2>
-              <button type="button" className="ghost-btn" onClick={() => setRulesOpen(true)}>
-                <IconInfo /> How ranking works
+              <label className="pill-select">
+                <span className="sr">Show</span>
+                <select value={filter} onChange={(e) => setFilter(e.target.value as Filter)}>
+                  <option value="all">All · {queued.length + inProgress.length}</option>
+                  <option value="waiting">Waiting · {queued.length}</option>
+                  <option value="call">On a call · {inProgress.length}</option>
+                </select>
+              </label>
+              <button type="button" className="icon-btn rules-btn" onClick={() => setRulesOpen(true)} aria-label="How ranking works" data-tip="How ranking works">
+                <IconInfo />
               </button>
             </div>
 
@@ -257,7 +325,7 @@ export default function QueuePage() {
               </div>
             ) : (
               <>
-                {calls.length > 0 && (
+                {filter !== 'waiting' && calls.length > 0 && (
                   <ul className="list calls" aria-label="On a call">
                     {calls.map(({ item, key, leaving }) => (
                       <ListRow
@@ -276,7 +344,7 @@ export default function QueuePage() {
                     ))}
                   </ul>
                 )}
-                <ol className="list" ref={listRef} aria-label="Waiting, highest priority first">
+                <ol className="list" ref={listRef} aria-label="Waiting, highest priority first" hidden={filter === 'call'}>
                   {rows.map(({ item, key, leaving }) => (
                     <ListRow
                       key={key}
@@ -294,13 +362,16 @@ export default function QueuePage() {
                     />
                   ))}
                 </ol>
-                {rows.length === 0 && <p className="list-clear muted">No one else waiting.</p>}
+                {filter !== 'call' && rows.length === 0 && <p className="list-clear muted">No one else waiting.</p>}
+                {filter === 'call' && calls.length === 0 && <p className="list-clear muted">No one on a call.</p>}
               </>
             )}
           </section>
 
           <button type="button" className="sheet-backdrop" aria-label="Close details" tabIndex={-1} onClick={() => setSheetOpen(false)} />
-          <section className="detail card-sel" aria-label="Caller brief" aria-live="polite">
+          <div className="md-detail">
+          <h2 className="md-detail-title">Caller brief</h2>
+          <section className={`detail card-sel${selected && selected.id === firstVisibleId ? ' join-top' : ''}`} aria-label="Caller brief" aria-live="polite">
             {!data ? (
               <DetailSkeleton />
             ) : selected ? (
@@ -312,27 +383,33 @@ export default function QueuePage() {
                   agingCap={agingCap}
                   scaleMax={scaleMax}
                   phone={phones[selected.id]}
-                  busy={busy === selected.id}
+                  etaMin={Math.max(1, Math.ceil((((selected.rank ?? 1) * (settings?.avgHandleMin ?? 4)) / Math.max(1, settings?.repsOnShift ?? 1))))}
+                  busy={busy?.id === selected.id ? busy.kind : null}
                   onCallBack={claim}
                   onDone={finish}
+                  onRelease={release}
                   onClose={() => setSheetOpen(false)}
                 />
               </div>
             ) : (
               <div className="detail-empty">
-                <p className="eyebrow">Caller brief</p>
                 <p className="muted">Briefs appear here when someone calls.</p>
               </div>
             )}
           </section>
+          </div>
         </div>
       </div>
 
       <aside className={`q-rail${requireVerification ? '' : ' is-solo'}`} aria-label="Today">
         {requireVerification && codes.data && !is404(codes.error) && <CodesCard codes={codes.data.codes} nowEst={nowEst} />}
-        {data ? <Timeline items={[...queued, ...inProgress, ...done]} requireVerification={requireVerification} /> : <div className="card sk-card" />}
+        {data ? <Timeline items={[...queued, ...inProgress, ...done]} requireVerification={requireVerification} onReopen={(id) => {
+              const it = done.find((d) => d.id === id);
+              if (it) void reopen(it);
+            }} /> : <div className="card sk-card" />}
       </aside>
 
+      <Toast toast={toast} onHide={hideToast} />
       <Drawer open={rulesOpen} title="How ranking works" onClose={() => setRulesOpen(false)}>
         {settings && <Rules settings={settings} />}
       </Drawer>
