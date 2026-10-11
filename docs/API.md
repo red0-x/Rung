@@ -74,7 +74,7 @@ Tier labels: critical "Critical", high "High", normal "Normal", low "Low".
 | POST | `/api/org/number` | `{numberId}` | `{org}`; `409 number_taken`; `404` unknown id. Claiming a new one releases the old one |
 | GET | `/api/prompt-preview` | | `{prompt}` rendered from saved settings |
 | POST | `/api/prompt-preview` | `{name?, settings?}` draft (not saved) | `{prompt}` |
-| POST | `/api/org/publish` | | `{ok:true, mock:boolean, numberId, number, request:{method:'PATCH', path:'/numbers/<id>', body:{inboundInstruction}}}`; `400 no_number` |
+| POST | `/api/org/publish` | | `{ok:true, mock:boolean, numberId, number, request:{method:'PATCH', path:'/numbers/<id>', body:{inboundInstruction}}}`; `400 no_number`; `502 dial_failed` if Dial rejects it |
 | GET | `/api/queue` | | `QueueResponse` (below) |
 | GET | `/api/queue/:id/transcript` | | `{transcript:string\|null, turns:[{speaker,text}]\|null}` |
 | POST | `/api/queue/:id/callback` | | `{phone, tel}` and status → `in_progress` |
@@ -101,7 +101,8 @@ interface QueueResponse {
 
 ## MCP (Dial Context MCP)
 
-- `POST /mcp/<org.mcp_token>` (preferred). `POST /mcp` falls back to `X-Dial-Agent-Number` → org by `dial_number`. Unknown → 401.
+- `POST /mcp/<org.mcp_token>`, or `POST /mcp` with org resolved from `X-Dial-Agent-Number` → org by `dial_number`. Unknown → 401.
+- Dial attaches one Context MCP per account, so production uses `POST /mcp` with static header `X-Mcp-Secret: <MCP_SHARED_SECRET>` (bearer or `/mcp/<MCP_SHARED_SECRET>` also accepted). Required when the secret is set; production won't boot without it. A missing/templated agent number (tool discovery) is allowed with the secret: tools list fine, tool calls return error `org_unknown`.
 - Caller identity only from `X-Dial-User-Number` (E.164; missing / `{{template}}` values = unknown caller).
 - Tools: `lookup_caller()`, `send_code()`, `check_code({code})`, `save_profile({name, consent})`, `triage_call({intent, amount_usd?, summary, caller_name?})`. Shapes per `attachments/RUNG_CONTEXT.md` §4.
 
