@@ -1,0 +1,19 @@
+/* Rung brand tokens (attachments/Rung Brand Essentials.png). Shared by landing and dashboard. */
+:root {
+  --ink: #111111;
+  --ivory: #f7f7f2;
+  --cobalt: #345cff;
+  --ink-10: rgba(17, 17, 17, 0.1);
+  --ink-20: rgba(17, 17, 17, 0.2);
+  --ink-60: rgba(17, 17, 17, 0.6);
+  --critical: #e5391f;
+  --high: #e8a200;
+  --normal: #345cff;
+  --low: #8a97ae;
+  --ready: #1f9d55;
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --track-tight: -0.03em;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; background: var(--ivory); color: var(--ink); font-family: var(--font); }
+.tnum { font-variant-numeric: tabular-nums; }
