@@ -5,6 +5,11 @@ type: decisions
 
 Newest first. Append with [[templates/decision]]. Never edit an old one; supersede it.
 
+## D10 · Pitch framing: "Gmail Priority Inbox for phone support" (supersedes the Link one-liner)
+- One-liner: *Rung is Gmail Priority Inbox for phone support.* Tagline: *Never on hold. Never a stranger.* "Stripe Link for phone support" and "Your time, returned" are retired (Link covered memory only; every project here uses "time back").
+- Four points: nobody holds · the right call first · the rep never starts cold · never a stranger. Script: `docs/pitch.md`.
+- Owner: Jadon · 2026-10-11
+
 ## D9 · www.tryrung.today is the main site
 - Old `rung-liart.vercel.app` pages 307 to www; `/api`, `/mcp`, `/webhooks` keep working on both hosts so Dial's registered URLs don't break mid-demo. Move Dial's MCP + webhook to www after the demo.
 - Owner: Jadon · 2026-10-11

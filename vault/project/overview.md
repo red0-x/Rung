@@ -3,11 +3,11 @@ type: project
 ---
 # Rung — overview
 
-**Stripe Link for phone support.** You explain your problem once, verify with an SMS code, and every later call to a Rung-enabled company starts with the agent already knowing who you are and why you're calling. Urgent calls get a human first; nobody waits on hold.
+**Gmail Priority Inbox for phone support** (D10; was "Stripe Link for phone support"). You explain your problem once, and every later call to a Rung-enabled company starts with the agent already knowing who you are and why you're calling. Urgent calls get a human first; nobody waits on hold.
 
 **B2B.** We sell to businesses that want to streamline phone support. Their calls arrive filtered, ranked, and with a brief before a rep calls back; their customers never hold, they get called back. Pitch both sides: time back for the support team *and* for the customer.
 
-Tagline: **"Your time, returned."** Subline: *Remembered callers. Callbacks instead of hold music.*
+Tagline: **"Never on hold. Never a stranger."** (D10; replaces "Your time, returned.") Pitch script: `docs/pitch.md`.
 
 **Multi-company (D5):** many companies, each with its own Rung (own Dial number, rules, callers, queue). A company signs in to the dashboard, sets up its Rung in `/setup`, and works its queue in `/queue`. Spec: `attachments/RUNG_CONTEXT.md`.
 
