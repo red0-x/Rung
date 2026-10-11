@@ -1,0 +1,451 @@
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import cors from 'cors';
+import express, { type Express, type NextFunction, type Request, type Response } from 'express';
+import { z } from 'zod';
+import type { Auth, AuthUser } from './auth.js';
+import type { DialClient, DialLog } from './dial.js';
+import { handleDialEvent, type DialEvent } from './events.js';
+import { callerFromHeaders, maskPhone, safeEqual } from './identity.js';
+import { buildMcpServer, type Deps } from './mcp.js';
+import { createOrg, toOrgView } from './orgs.js';
+import { loadPromptTemplate, renderPrompt } from './prompt.js';
+import { rankQueued, savedMinutes, toView } from './queue.js';
+import { scoreItem } from './scoring.js';
+import { mergeSettings, settingsPatchSchema } from './settings.js';
+import type { Org, QueueItem, Role } from './types.js';
+import { verifyDialSignature } from './webhook.js';
+
+export interface AppDeps extends Deps {
+  dial: DialClient & { log: DialLog };
+  auth: Auth;
+  /** Wipe this org's callers/queue and reload its seed data (dev only). */
+  reseedOrg?: (org: Org) => Promise<void>;
+}
+
+const DONE_VISIBLE_MS = 12 * 3_600_000;
+const TIME_SAVED_WINDOW_MS = 24 * 3_600_000;
+
+interface Locals {
+  user: AuthUser;
+  org: Org | null;
+  role: Role | null;
+}
+const L = (res: Response) => res.locals as Locals;
+
+const orgBody = z.object({ name: z.string().trim().min(1).max(80) }).strict();
+const orgPatchBody = z
+  .object({ name: z.string().trim().min(1).max(80).optional(), settings: settingsPatchSchema.optional() })
+  .strict();
+const numberBody = z.object({ numberId: z.string().min(1) }).strict();
+
+export function createApp(deps: AppDeps): Express {
+  const { store, otp, dial, cfg, now, log, auth } = deps;
+  const app = express();
+  app.disable('x-powered-by');
+  app.set('trust proxy', 1);
+
+  // ───────────────────────── Dial webhooks ─────────────────────────
+  // Needs the raw body for signature verification, so no global JSON parser.
+  app.post('/webhooks/dial', express.raw({ type: () => true, limit: '1mb' }), async (req, res) => {
+    const raw = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+
+    if (cfg.dialWebhookSecret) {
+      const sig = verifyDialSignature(raw, req.header('x-dial-signature'), cfg.dialWebhookSecret, now());
+      if (!sig.ok) {
+        log(`webhook rejected: ${sig.reason}`);
+        res.status(401).json({ error: sig.reason });
+        return;
+      }
+    }
+
+    let evt: DialEvent;
+    try {
+      evt = JSON.parse(raw.toString('utf8')) as DialEvent;
+    } catch {
+      res.status(400).json({ error: 'invalid_json' });
+      return;
+    }
+
+    // Dial retries non-2xx up to 6 times; dedupe so a retry never double-processes.
+    const eventId = req.header('x-dial-event-id') ?? evt.id;
+    if (eventId && !(await store.markEventSeen(eventId))) {
+      res.status(200).json({ duplicate: true });
+      return;
+    }
+
+    // Answer inside Dial's 10s timeout; do the work (it may fetch the call record) afterwards.
+    res.status(200).json({ received: true });
+    handleDialEvent(evt, { store, dial, now, log }).catch((err) =>
+      log(`event ${evt.type} failed: ${(err as Error).message}`),
+    );
+  });
+
+  // ───────────────────────── MCP (Dial Context MCP) ─────────────────────────
+  /**
+   * Org resolution:
+   *  - /mcp/<org.mcp_token>: that org (preferred; the token is the secret).
+   *  - /mcp (or /mcp/<MCP_SHARED_SECRET>): org from X-Dial-Agent-Number. Needs MCP_SHARED_SECRET
+   *    (URL, X-Mcp-Secret header or bearer) when set; without it, allowed in dev only.
+   *    A missing/unsubstituted agent number (tool discovery) yields org=null: tools answer org_unknown.
+   */
+  const resolveMcpOrg = async (req: Request): Promise<{ ok: true; org: Org | null } | { ok: false }> => {
+    const token = (req.params as Record<string, string | undefined>).token;
+    const secret = cfg.mcpSharedSecret;
+    if (token) {
+      const org = await store.getOrgByMcpToken(token);
+      if (org) return { ok: true, org };
+      if (!secret || !safeEqual(token, secret)) return { ok: false };
+    } else if (secret) {
+      const auth = req.header('authorization');
+      const bearer = auth?.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : undefined;
+      const provided = req.header('x-mcp-secret') ?? bearer;
+      if (!provided || !safeEqual(provided, secret)) return { ok: false };
+    } else if (cfg.env === 'production') {
+      return { ok: false };
+    }
+    const agent = callerFromHeaders((h) => req.header(h)).agentNumber;
+    if (!agent) return { ok: true, org: null };
+    const org = await store.getOrgByDialNumber(agent);
+    return org ? { ok: true, org } : { ok: false };
+  };
+
+  const mcpPaths = ['/mcp', '/mcp/:token'];
+
+  app.post(mcpPaths, express.json({ limit: '1mb' }), async (req: Request, res: Response) => {
+    const resolved = await resolveMcpOrg(req);
+    if (!resolved.ok) {
+      res.status(401).json({ jsonrpc: '2.0', error: { code: -32001, message: 'Unauthorized' }, id: null });
+      return;
+    }
+    const ctx = callerFromHeaders((h) => req.header(h));
+    const first = Array.isArray(req.body) ? req.body[0] : req.body;
+    log(
+      `mcp [${resolved.org?.slug ?? 'no-org'}] ${first?.method ?? '?'}${first?.params?.name ? ` ${first.params.name}` : ''} ` +
+        `caller=${ctx.phone ? maskPhone(ctx.phone, '*') : 'none'} dir=${ctx.direction ?? 'none'}`,
+    );
+
+    // Stateless: a fresh server + transport per request, closed over this org and caller.
+    const server = buildMcpServer(resolved.org, ctx, deps);
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+    res.on('close', () => {
+      void transport.close();
+      void server.close();
+    });
+    try {
+      await server.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+    } catch (err) {
+      log(`mcp error: ${(err as Error).message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ jsonrpc: '2.0', error: { code: -32603, message: 'Internal server error' }, id: null });
+      }
+    }
+  });
+
+  app.all(mcpPaths, (_req, res) => {
+    res
+      .status(405)
+      .set('Allow', 'POST')
+      .json({ jsonrpc: '2.0', error: { code: -32000, message: 'Method not allowed' }, id: null });
+  });
+
+  // ───────────────────────── Dashboard API ─────────────────────────
+  const api = express.Router();
+  api.use(cors({ origin: cfg.corsOrigin === '*' ? true : cfg.corsOrigin.split(',').map((s) => s.trim()) }));
+  api.use(express.json({ limit: '256kb' }));
+
+  api.get('/health', (_req, res) => {
+    res.json({ ok: true, store: store.kind, dial: dial.mock ? 'mock' : 'live', time: now() });
+  });
+
+  // Everything below needs a signed-in user.
+  api.use(async (req, res, next) => {
+    const h = req.header('authorization') ?? '';
+    const token = h.toLowerCase().startsWith('bearer ') ? h.slice(7).trim() : '';
+    const user = token ? await auth.verify(token).catch(() => null) : null;
+    if (!user) {
+      res.status(401).json({ error: 'unauthorized' });
+      return;
+    }
+    const m = await store.getMembership(user.id);
+    const org = m ? ((await store.getOrg(m.orgId)) ?? null) : null;
+    Object.assign(res.locals, { user, org, role: org ? m!.role : null } satisfies Locals);
+    next();
+  });
+
+  const platform = () => ({ dial: dial.mock ? 'mock' : 'live', demoShowCodes: cfg.demoShowCodes, enableDev: cfg.enableDev });
+
+  api.get('/me', (_req, res) => {
+    const { user, org, role } = L(res);
+    res.json({ user: { id: user.id, email: user.email }, org: org ? toOrgView(cfg, org) : null, role, platform: platform() });
+  });
+
+  api.post('/org', async (req, res) => {
+    const { user, org: existing } = L(res);
+    if (existing) {
+      res.status(409).json({ error: 'already_member' });
+      return;
+    }
+    const body = orgBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: 'invalid', message: body.error.message });
+      return;
+    }
+    const org = await createOrg(store, { name: body.data.name, now: now() });
+    await store.addMember({ orgId: org.id, userId: user.id, role: 'admin' });
+    log(`org created: ${org.slug}`);
+    res.status(201).json({ org: toOrgView(cfg, org) });
+  });
+
+  // Everything below needs an org.
+  api.use((_req, res, next) => {
+    if (!L(res).org) {
+      res.status(403).json({ error: 'no_org' });
+      return;
+    }
+    next();
+  });
+  const orgOf = (res: Response) => L(res).org!;
+
+  api.get('/org', (_req, res) => {
+    res.json({ org: toOrgView(cfg, orgOf(res)) });
+  });
+
+  api.patch('/org', async (req, res) => {
+    const org = orgOf(res);
+    const body = orgPatchBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: 'invalid', message: body.error.message });
+      return;
+    }
+    const patch: Partial<Org> = {};
+    if (body.data.name) patch.name = body.data.name;
+    if (body.data.settings) patch.settings = mergeSettings(org.settings, body.data.settings);
+    const next = Object.keys(patch).length ? await store.updateOrg(org.id, patch) : org;
+    res.json({ org: toOrgView(cfg, next ?? org) });
+  });
+
+  api.get('/numbers', async (_req, res) => {
+    const org = orgOf(res);
+    const claimed = new Map((await store.listOrgs()).filter((o) => o.dialNumberId).map((o) => [o.dialNumberId!, o.id]));
+    res.json({
+      numbers: cfg.numberPool.map((n) => {
+        const owner = claimed.get(n.id);
+        return { id: n.id, number: n.number, mock: n.mock, available: !owner, mine: owner === org.id };
+      }),
+    });
+  });
+
+  api.post('/org/number', async (req, res) => {
+    const org = orgOf(res);
+    const body = numberBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: 'invalid', message: body.error.message });
+      return;
+    }
+    const n = cfg.numberPool.find((p) => p.id === body.data.numberId);
+    if (!n) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    const owner = (await store.listOrgs()).find((o) => o.dialNumberId === n.id || o.dialNumber === n.number);
+    if (owner && owner.id !== org.id) {
+      res.status(409).json({ error: 'number_taken' });
+      return;
+    }
+    // Claiming a new number releases the old one (a number belongs to one org at a time).
+    let next: Org | undefined;
+    try {
+      next = await store.updateOrg(org.id, { dialNumber: n.number, dialNumberId: n.id, publishedAt: null });
+    } catch {
+      res.status(409).json({ error: 'number_taken' });
+      return;
+    }
+    log(`[${org.slug}] claimed ${n.number} (${n.id})`);
+    res.json({ org: toOrgView(cfg, next ?? org) });
+  });
+
+  const render = (name: string, settings: Org['settings']) =>
+    renderPrompt(loadPromptTemplate(cfg.promptTemplatePath), name, settings);
+
+  api.get('/prompt-preview', (_req, res) => {
+    const org = orgOf(res);
+    res.json({ prompt: render(org.name, org.settings) });
+  });
+
+  api.post('/prompt-preview', (req, res) => {
+    const org = orgOf(res);
+    const body = orgPatchBody.safeParse(req.body ?? {});
+    if (!body.success) {
+      res.status(400).json({ error: 'invalid', message: body.error.message });
+      return;
+    }
+    const settings = body.data.settings ? mergeSettings(org.settings, body.data.settings) : org.settings;
+    res.json({ prompt: render(body.data.name ?? org.name, settings) });
+  });
+
+  api.post('/org/publish', async (_req, res) => {
+    const org = orgOf(res);
+    if (!org.dialNumberId || !org.dialNumber) {
+      res.status(400).json({ error: 'no_number', message: 'Claim a number first.' });
+      return;
+    }
+    const inboundInstruction = render(org.name, org.settings);
+    const pooled = cfg.numberPool.find((p) => p.id === org.dialNumberId);
+    const mock = dial.mock || !!pooled?.mock;
+    try {
+      if (mock && !dial.mock) {
+        // Live Dial, but a fake pool number: record it, don't send it to Dial.
+        dial.log.patches.push({ orgId: org.id, numberId: org.dialNumberId, inboundInstruction, at: now() });
+      } else {
+        await dial.updateNumberInstruction(org.dialNumberId, inboundInstruction, { orgId: org.id });
+      }
+    } catch (err) {
+      log(`[${org.slug}] publish failed: ${(err as Error).message}`);
+      res.status(502).json({ error: 'dial_failed', message: (err as Error).message });
+      return;
+    }
+    await store.updateOrg(org.id, { publishedAt: now() });
+    log(`[${org.slug}] published prompt to ${org.dialNumber}${mock ? ' (mock)' : ''}`);
+    res.json({
+      ok: true,
+      mock,
+      numberId: org.dialNumberId,
+      number: org.dialNumber,
+      request: { method: 'PATCH', path: `/numbers/${org.dialNumberId}`, body: { inboundInstruction } },
+    });
+  });
+
+  api.get('/queue', async (_req, res) => {
+    const org = orgOf(res);
+    const s = org.settings;
+    const t = now();
+    const [active, doneList, today] = await Promise.all([
+      store.listQueueItems(org.id, { statuses: ['queued', 'in_progress'] }),
+      store.listQueueItems(org.id, { statuses: ['done'], since: t - DONE_VISIBLE_MS - 24 * 3_600_000, limit: 50 }),
+      store.listQueueItems(org.id, { since: t - TIME_SAVED_WINDOW_MS }),
+    ]);
+    const queued = rankQueued(active, t, s).map((x, i) => toView(x, i + 1, s));
+    const inProgress = active
+      .filter((i) => i.status === 'in_progress')
+      .sort((a, b) => (b.claimedAt ?? 0) - (a.claimedAt ?? 0))
+      .map((item) => toView({ item, score: scoreItem(item, t, s) }, null, s));
+    const done = doneList
+      .filter((i) => (i.doneAt ?? i.createdAt) > t - DONE_VISIBLE_MS)
+      .sort((a, b) => (b.doneAt ?? b.createdAt) - (a.doneAt ?? a.createdAt))
+      .slice(0, 6)
+      .map((item) => toView({ item, score: scoreItem(item, t, s) }, null, s));
+
+    const waits = queued.map((q) => q.waitedMin);
+    const returningCallers = today.filter((i) => i.returning).length;
+    res.json({
+      now: t,
+      queued,
+      inProgress,
+      done,
+      stats: {
+        waiting: queued.length,
+        inProgress: inProgress.length,
+        longestWaitMin: waits.length ? Math.max(...waits) : 0,
+        avgWaitMin: waits.length ? Math.round(waits.reduce((a, b) => a + b, 0) / waits.length) : 0,
+      },
+      timeSaved: {
+        totalMin: today.reduce((sum, i) => sum + savedMinutes(i, s), 0),
+        callers: today.length,
+        baselineHoldMin: s.baselineHoldMin,
+        reexplainMin: s.reexplainMin,
+        returningCallers,
+        formula: `${s.baselineHoldMin} min hold avoided per caller + ${s.reexplainMin} min re-explaining avoided per returning caller`,
+      },
+    });
+  });
+
+  /** An id from another org is indistinguishable from an unknown id. */
+  const ownItem = async (res: Response, id: string): Promise<QueueItem | undefined> => {
+    const item = await store.getQueueItem(id);
+    if (!item || item.orgId !== orgOf(res).id) {
+      res.status(404).json({ error: 'not_found' });
+      return undefined;
+    }
+    return item;
+  };
+
+  api.get('/queue/:id/transcript', async (req, res) => {
+    const item = await ownItem(res, String(req.params.id));
+    if (!item) return;
+    res.json({ transcript: item.transcript ?? null, turns: item.transcriptTurns ?? null });
+  });
+
+  // The list masks numbers; the full number is only released when a rep claims the item.
+  api.post('/queue/:id/callback', async (req, res) => {
+    const item = await ownItem(res, String(req.params.id));
+    if (!item) return;
+    await store.updateQueueItem(item.id, { status: 'in_progress', claimedAt: now() });
+    log(`[${orgOf(res).slug}] callback claimed ${item.id} by ${L(res).user.email}`);
+    res.json({ phone: item.phone, tel: `tel:${item.phone}` });
+  });
+
+  api.post('/queue/:id/done', async (req, res) => {
+    const item = await ownItem(res, String(req.params.id));
+    if (!item) return;
+    await store.updateQueueItem(item.id, { status: 'done', doneAt: now() });
+    res.json({ ok: true });
+  });
+
+  api.get('/profiles', async (_req, res) => {
+    const profiles = await store.listProfiles(orgOf(res).id);
+    res.json({
+      profiles: profiles.map((p) => ({
+        name: p.name,
+        phoneMasked: maskPhone(p.phone),
+        createdAt: p.createdAt,
+        verified: !!p.verifiedAt,
+      })),
+    });
+  });
+
+  // Demo-day fallback if SMS delivery fails on stage: the caller can read the code off the dashboard.
+  api.get('/dev/codes', (_req, res) => {
+    if (!cfg.demoShowCodes) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    res.json({
+      codes: otp.demoCodes(orgOf(res).id).map((c) => ({ phoneMasked: maskPhone(c.phone), code: c.code, expiresAt: c.expiresAt })),
+    });
+  });
+
+  api.get('/dev/dial-log', (_req, res) => {
+    const orgId = orgOf(res).id;
+    const mine = <T extends { orgId: string | null }>(list: T[]) => list.filter((x) => x.orgId === orgId);
+    res.json({
+      mock: dial.mock,
+      sms: mine(dial.log.sms).map((m) => ({ toMasked: maskPhone(m.to), from: m.from, body: m.body, at: m.at })),
+      patches: mine(dial.log.patches).map((p) => ({ numberId: p.numberId, at: p.at, inboundInstruction: p.inboundInstruction })),
+      callFetches: mine(dial.log.callFetches).map((c) => ({ callId: c.callId, at: c.at })),
+    });
+  });
+
+  api.post('/dev/reset', async (_req, res) => {
+    if (!cfg.enableDev) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    const org = orgOf(res);
+    if (deps.reseedOrg) await deps.reseedOrg(org);
+    else await store.resetOrgData(org.id);
+    otp.clearDemoCodes(org.id);
+    log(`[${org.slug}] reset`);
+    res.json({ ok: true });
+  });
+
+  app.use('/api', api);
+
+  app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
+    log(`unhandled error: ${err.message}`);
+    if (res.headersSent) return next(err);
+    res.status(500).json({ error: 'internal_error' });
+  });
+
+  return app;
+}
