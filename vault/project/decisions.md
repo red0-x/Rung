@@ -5,6 +5,10 @@ type: decisions
 
 Newest first. Append with [[templates/decision]]. Never edit an old one; supersede it.
 
+## D9 · www.tryrung.today is the main site
+- Old `rung-liart.vercel.app` pages 307 to www; `/api`, `/mcp`, `/webhooks` keep working on both hosts so Dial's registered URLs don't break mid-demo. Move Dial's MCP + webhook to www after the demo.
+- Owner: Jadon · 2026-10-11
+
 ## D8 · One login, several orgs; teammates added by email invite
 - `X-Org-Id` header picks the org per request (sidebar switcher, stored in localStorage); falls back to the oldest membership, never grants access. Invites by email become memberships on the person's next `/api/me`, so nobody's password is handled for them.
 - Why: the team (Jadon, Conrad, Reid) needs both demo orgs without six plus-address accounts.

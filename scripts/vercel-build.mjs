@@ -61,6 +61,14 @@ writeFileSync(
     {
       version: 3,
       routes: [
+        // The main site is www.tryrung.today: send people on the old *.vercel.app URL there. API, MCP and webhook
+        // paths stay put on both hosts (Dial is registered on the old URL and won't follow a redirect on POST).
+        {
+          src: '^/(?!(?:api|mcp|webhooks)(?:/|$))(.*)$',
+          has: [{ type: 'host', value: 'rung-liart.vercel.app' }],
+          status: 307,
+          headers: { Location: 'https://www.tryrung.today/$1' },
+        },
         { src: '^/((?:api|mcp|webhooks)(?:/.*)?)$', dest: '/api?__rung_path=/$1' },
         { handle: 'filesystem' },
         { src: '^/assets/(.*)$', status: 404 },

@@ -1,6 +1,6 @@
 # Deploying Rung
 
-**One Vercel project, one URL:** `rung` (team jadon-lis-projects), production alias **https://rung-liart.vercel.app**.
+**One Vercel project, one URL:** `rung` (team jadon-lis-projects), main site **https://www.tryrung.today** (`tryrung.today` → `www`). The old alias https://rung-liart.vercel.app still serves `/api`, `/mcp`, `/webhooks` (Dial is registered there); its pages redirect to www.
 The project is Git-connected to GitHub `jadonli09/rung`: a push to `main` deploys production; `npx vercel deploy`
 from a checkout makes a preview.
 
@@ -50,7 +50,7 @@ Production refuses to boot without `MCP_SHARED_SECRET`, `SUPABASE_URL` and `SUPA
 | Var | Notes |
 | --- | --- |
 | `NODE_ENV` | `production`: dev auth off, secrets enforced |
-| `PUBLIC_URL` | `https://rung-liart.vercel.app` (MCP URLs shown in the dashboard) |
+| `PUBLIC_URL` | `https://www.tryrung.today` (MCP URLs shown in the dashboard) |
 | `STORE` | `supabase` |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (sensitive) | store, JWT verification, demo-user lookup |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | baked into the web build |
@@ -69,7 +69,7 @@ Set a value without printing it: `printf '%s' "$VALUE" | npx vercel env add NAME
 ## Smoke test
 
 ```bash
-curl https://rung-liart.vercel.app/api/health    # {"ok":true,"store":"supabase","dial":"live","mcpAuth":true,...}
+curl https://www.tryrung.today/api/health    # {"ok":true,"store":"supabase","dial":"live","mcpAuth":true,...}
 curl -X POST https://rung-liart.vercel.app/mcp -H 'content-type: application/json' \
   -H 'accept: application/json, text/event-stream' -H "x-mcp-secret: $MCP_SHARED_SECRET" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'      # lookup_caller, save_profile, triage_call

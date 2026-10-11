@@ -16,11 +16,11 @@ Known facts (from Dial docs and the coordinator's live check):
 
 ## 1. Public URL
 
-Everything (dashboard + API + MCP + webhooks) is one Vercel project: **https://rung-liart.vercel.app**
+Everything (dashboard + API + MCP + webhooks) is one Vercel project: **https://www.tryrung.today** (old alias https://rung-liart.vercel.app still serves API/MCP/webhooks)
 (see `docs/DEPLOY.md`). Env vars are already set on the project, including `MCP_SHARED_SECRET` (also in local `.env`).
 
 1. Promote / deploy to production (a push of `main` to the Git-connected repo deploys production).
-2. Confirm: `curl https://rung-liart.vercel.app/api/health` returns `"store":"supabase","dial":"live","mcpAuth":true`.
+2. Confirm: `curl https://www.tryrung.today/api/health` returns `"store":"supabase","dial":"live","mcpAuth":true`.
    `webhookVerify` stays `false` until step 3.
 3. Post the URL in `vault/areas/backend.md`.
 

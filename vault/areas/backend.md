@@ -25,7 +25,7 @@ One service: MCP server for Dial, webhook receiver, `/api/queue`. Owns [[project
 
 ## Public URL
 <!-- current base URL; update when it changes -->
-https://rung-liart.vercel.app  (dashboard, `/api`, `/mcp`, `/webhooks/dial`)
+https://www.tryrung.today  (dashboard, `/api`, `/mcp`, `/webhooks/dial`) — main site from 2026-10-11. Old https://rung-liart.vercel.app: pages redirect to www; `/api`, `/mcp`, `/webhooks` still served (Dial registered there).
 
 ## Requests
 - [x] **Deploy needed (from red):** done 2026-10-11 by jadon (`c04be27`, prompts republished, `update_profile` live). `red0-x/Rung` `main` has the ETA text + caller facts ([[log/2026-10-11-2105-red-eta-sms-and-caller-facts]]). Please push `main` to `jadonli09/rung` so Vercel redeploys and migration `20261011210000_caller_facts_and_eta.sql` applies. Then republish both orgs' prompts (`POST /api/org/publish`). Do the prompt only after the deploy: it calls `update_profile`, which the live server lacks today.
