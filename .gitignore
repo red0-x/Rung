@@ -1,0 +1,8 @@
+.env
+data/
+node_modules/
+__pycache__/
+# Obsidian per-person UI state
+vault/.obsidian/workspace*.json
+vault/.obsidian/cache
+vault/.trash/
