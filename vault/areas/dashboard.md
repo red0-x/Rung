@@ -13,6 +13,7 @@ Rep view of the queue. Reads `GET /api/queue` ([[project/contracts#HTTP API (bac
 - [x] `/setup` wizard: company, greeting/tone, rules, claim number, live prompt preview, Publish to Dial, MCP URL
 - [x] Verified against the real server + Supabase (bank demo user via dev token)
 - [x] Redesign (ref: `attachments/dash-ref-*.png`), real logo, motion — 2026-10-11
-- [ ] Deploy to Vercel (`VITE_API_BASE` = server URL)
+- [x] Deployed on Vercel (same origin) — 2026-10-11
+- [x] Queue redesign, Cancel/Reopen, Callers + History tables — 2026-10-11
 
 ## Requests
