@@ -388,8 +388,7 @@ code {
 }
 .row,
 .talk,
-.rule-line,
-.rules-table tr {
+.rule-line {
   --tier: var(--low);
   --tier-ink: #4f5d78;
 }
@@ -782,7 +781,7 @@ code {
   width: 0.65rem;
   height: 0.65rem;
   border-radius: 50%;
-  background: var(--tier);
+  background: var(--tier, var(--low));
   flex: none;
 }
 .pts {
@@ -895,7 +894,7 @@ code {
 }
 .setup-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(22rem, 34rem);
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 30rem);
   gap: 3rem;
   align-items: start;
   margin-top: 1rem;
@@ -956,6 +955,12 @@ code {
 }
 .cell-input.num {
   width: 6rem;
+}
+.rules-table td:first-child .cell-input {
+  min-width: 13rem;
+}
+.value-tiers label:first-child .cell-input.num {
+  width: 9rem;
 }
 .intent-key {
   display: block;
@@ -1125,10 +1130,31 @@ code {
     font-size: 3.4rem;
   }
   .side {
-    grid-column: 2;
-    justify-items: start;
-    grid-auto-flow: column;
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
+    gap: 0.75rem 1.25rem;
+    min-width: 0;
+  }
+  .side .btn {
+    flex: 1 1 100%;
+  }
+  .talk {
+    flex-direction: column;
+  }
+  .talk-actions {
+    align-items: stretch;
+  }
+  .done-list li {
+    grid-template-columns: 1fr auto;
+  }
+  .stats > div:nth-child(odd) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .stats > div:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
   }
   .metric {
     justify-items: start;
