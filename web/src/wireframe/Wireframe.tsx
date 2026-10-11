@@ -1,8 +1,10 @@
-import { useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Tile, Cube } from './Tile';
 import { Logo } from '../brand/Logo';
 import { useScenes } from './useScenes';
 import CallStory from './CallStory';
+import AgentView from './AgentView';
+import { MARKS } from './stackMarks';
 import './wireframe.css';
 import './story.css';
 
@@ -25,14 +27,26 @@ const QUEUE = [
   ['Luis Ortega', 'Question about statement', 'LOW', 18, 'low'],
 ];
 
+type Mode = 'humans' | 'agents';
+const readMode = (): Mode => (new URLSearchParams(window.location.search).get('view') === 'agents' ? 'agents' : 'humans');
+
 export default function Wireframe() {
-  const root = useRef<HTMLDivElement>(null);
-  useScenes(root);
+  const [mode, setMode] = useState<Mode>(readMode);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (mode === 'agents') url.searchParams.set('view', 'agents');
+    else url.searchParams.delete('view');
+    window.history.replaceState(null, '', url);
+  }, [mode]);
+
+  const pick = (m: Mode) => {
+    setMode(m);
+    window.scrollTo(0, 0);
+  };
 
   return (
-    <div className="wf-root" ref={root}>
-      <div className="wf-progress" aria-hidden="true" />
-
+    <div className="wf-root">
       <header className="wf-nav">
         <a href="/" className="wf-brand" aria-label="Rung home"><Logo size={24} title="Rung" /></a>
         <nav aria-label="Sections">
@@ -41,11 +55,30 @@ export default function Wireframe() {
           <a href="#pricing">Pricing</a>
         </nav>
         <span className="wf-nav-actions">
+          <span className="wf-mode" role="tablist" aria-label="View this site for">
+            {(['humans', 'agents'] as const).map((m) => (
+              <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => pick(m)}>
+                <span className="wf-mode-for">For </span>{m}
+              </button>
+            ))}
+          </span>
           <a href="/login" className="wf-login">Log in</a>
           <a href="/login?signup" className="wf-btn wf-btn-ink wf-btn-sm">Get started</a>
         </span>
       </header>
 
+      {mode === 'agents' ? <AgentView /> : <HumanPage />}
+    </div>
+  );
+}
+
+function HumanPage() {
+  const root = useRef<HTMLDivElement>(null);
+  useScenes(root);
+
+  return (
+    <div ref={root}>
+      <div className="wf-progress" aria-hidden="true" />
       <main>
         {/* ---------- 1. HERO: side details fly at you ---------- */}
         <section className="wf-hero" data-scene="pin" data-rest="0">
@@ -181,7 +214,7 @@ export default function Wireframe() {
         </section>
 
         {/* ---------- 5. QUEUE: rows drop in, parallax columns ---------- */}
-        <section className="wf-queue" id="pricing" data-scene="pass" data-rest="0.5">
+        <section className="wf-queue" id="ranked" data-scene="pass" data-rest="0.5">
           <div className="wf-queue-inner">
             <h2 className="wf-display wf-h2">Ranked.<br />Not racing.</h2>
             <div className="wf-qlist">
@@ -198,7 +231,20 @@ export default function Wireframe() {
           </div>
         </section>
 
-        {/* ---------- 6. CTA: details fly back in ---------- */}
+        {/* ---------- 6. PRICING: contact ---------- */}
+        <section className="wf-price" id="pricing">
+          <h2 className="wf-display wf-h2">Pricing</h2>
+          <p>Every support line is different. Tell us about yours.</p>
+          <div className="wf-price-card">
+            <a className="wf-price-mail" href="mailto:hello@tryrung.today">hello@tryrung.today</a>
+            <span className="wf-price-btns">
+              <CopyButton text="hello@tryrung.today" />
+              <a className="wf-btn wf-btn-ink wf-btn-sm" href="mailto:hello@tryrung.today?subject=Rung%20pricing">Contact us</a>
+            </span>
+          </div>
+        </section>
+
+        {/* ---------- 7. CTA: details fly back in ---------- */}
         <section className="wf-end" data-scene="pass" data-rest="0.5">
           <Tile cls="wf-t-pink" x="6%" y="14%" w="min(18vw,260px)" fx={-30} fy={-20} fz={-500} r={-8} k={1.2}>
             <svg viewBox="0 0 200 130" className="wf-curve"><path d="M20 112 C 40 6, 160 6, 180 112" /><circle cx="20" cy="112" r="5" /><circle cx="180" cy="112" r="5" /></svg>
@@ -224,11 +270,32 @@ export default function Wireframe() {
         <div className="wf-marquee">
           <div className="wf-mq-track">
             {[...STACK, ...STACK].map((name, i) => (
-              <span key={i} aria-hidden={i >= STACK.length || undefined}>{name}</span>
+              <span key={i} aria-hidden={i >= STACK.length || undefined}>
+                {MARKS[name] && <svg viewBox="0 0 24 24" aria-hidden="true"><path d={MARKS[name]} /></svg>}
+                {name}
+              </span>
             ))}
           </div>
         </div>
       </section>
     </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      className="wf-btn wf-btn-ghost wf-btn-sm"
+      onClick={() => {
+        void navigator.clipboard?.writeText(text).then(() => {
+          setDone(true);
+          window.setTimeout(() => setDone(false), 1600);
+        });
+      }}
+    >
+      {done ? 'Copied' : 'Copy email'}
+    </button>
   );
 }

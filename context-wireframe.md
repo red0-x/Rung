@@ -35,6 +35,13 @@ Status: 2026-10-11 22:10 UTC (Conrad's agent). `/wireframe` call story is now bu
 - Hero centerpiece is a text-free copy of the real dashboard layout (ink sidebar, 4 tiles with cobalt first, ranked list, tinted brief). Verification and Language tiles moved off the title/subtitle.
 - Header is a floating pill (fixed, centered, blurred white). "Made with" monochrome marquee at the bottom: Dial, Supabase, Vercel, Keewano, Claude, React, TypeScript, MCP (text wordmarks, no logos).
 
+## Pass 3 (2026-10-11 22:55 UTC)
+
+- Header has a For humans / For agents segmented control (same glass). `?view=agents` swaps the page for `AgentView.tsx`, which renders `web/public/llms.txt` (llms.txt convention) as plain HTML with Copy as Markdown. Keep llms.txt factual to `vault/project/contracts.md`.
+- Pricing section `#pricing`: contact only, hello@tryrung.today with Copy email + Contact us (mailto). The ranked list section is now `#ranked`.
+- Made with strip shows official marks from Simple Icons (CC0) for Supabase, Vercel, Claude, React, TypeScript, MCP (`stackMarks.ts`). Dial and Keewano are text until we get their logo files.
+- Open question for Conrad: cut the horizontal "Everything your agent already knows" cards (recommended; they repeat the story).
+
 ## Visual checks (earlier pass)
 
 - Built with `cd web && npm run build` on 2026-10-11: passes, one existing >500kB chunk warning.

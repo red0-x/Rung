@@ -1,0 +1,48 @@
+# Rung
+
+> Rung answers a company's support phone line with a voice agent, verifies callers by texted code, and gives the support team a ranked callback queue with a written brief for every call. Callers explain their issue once; returning callers are recognized by phone number.
+
+## What Rung does
+
+- Answers inbound support calls on the first ring with the company's own greeting. Callers do not wait on hold.
+- Captures the issue in the caller's words and turns it into a brief: what happened, amount, when, what they want.
+- Verifies identity with a 6-digit code sent by SMS. A phone number recognizes a caller; only a code verifies them.
+- Ranks every request by urgency into a callback queue for human reps.
+- Texts the caller a confirmation with their place in line and a callback time. The text contains no account details.
+- Remembers callers who consent, so their next call skips name, story and verification steps that are not needed.
+
+## How a call works
+
+1. Caller dials the company number. Rung's agent looks up the caller by phone number and company.
+2. New caller: the agent asks what happened. Returning caller: the agent greets them by name with their details already up.
+3. For sensitive requests (moving money, account changes) the agent texts a code and checks it before queueing.
+4. The agent reads the key facts back, the caller confirms, and the request is queued with a priority score.
+5. A rep sees the call in the dashboard queue with the brief, trust level, history and transcript, then taps Call back.
+
+## For support teams
+
+- Dashboard: ranked queue, caller brief, history of past calls, transcript, one-tap callback.
+- Several reps can work one queue; a callback is claimed by one rep at a time.
+- Insights (via Keewano): urgent calls, returning callers, callbacks made over the day.
+- Data is scoped per company: the same phone number at two companies is two unrelated records.
+
+## Integration
+
+- Voice: runs on Dial. Rung exposes an MCP server the voice agent calls during the call.
+- MCP tools: `lookup_caller`, `send_code`, `check_code`, `save_profile`, `triage_call`.
+  - `lookup_caller` (no input): who is calling, last issue, open request, guidance for the greeting.
+  - `send_code` / `check_code {code}`: SMS verification, 5 minute expiry.
+  - `save_profile {name, consent}`: remember the caller; consent is required.
+  - `triage_call {intent, amount_usd?, summary, caller_name?}`: queue the request, returns position and callback ETA, sends the confirmation text.
+- HTTP API (authenticated): `GET /api/queue`, `POST /api/queue/:id/callback`, `POST /api/queue/next`, `POST /api/queue/:id/done`.
+- Webhooks from Dial: `call.ended`, `call.transcribed`.
+
+## Pricing
+
+- Pricing is set per company. Contact: hello@tryrung.today
+
+## Links
+
+- Website: https://www.tryrung.today
+- Sign up: https://www.tryrung.today/login?signup
+- Contact: mailto:hello@tryrung.today

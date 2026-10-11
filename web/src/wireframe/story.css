@@ -17,14 +17,14 @@
 .cs-s3 { height: 440vh; }
 .cs-stick {
   position: sticky; top: 0; height: 100vh; height: 100svh; overflow: clip;
-  display: grid; align-content: center; column-gap: clamp(24px, 3.4vw, 56px); row-gap: 14px;
+  display: grid; align-content: center; column-gap: clamp(32px, 5vw, 88px); row-gap: 14px;
   grid-template-columns: minmax(260px, 1fr) minmax(300px, 360px) minmax(260px, 300px);
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas: 'copy phone side' 'copy tx side';
   padding: 92px max(24px, calc((100vw - 1240px) / 2 + 32px)) 4vh;
 }
-.cs-copy { grid-area: copy; align-self: center; }
-.cs-lines { display: grid; font: 900 clamp(36px, 3.8vw, 64px)/0.98 var(--display); letter-spacing: -0.05em; text-wrap: balance; }
+.cs-copy { grid-area: copy; align-self: center; max-width: 11ch; font-size: clamp(36px, 3.8vw, 64px); padding-right: 0.4em; }
+.cs-lines { display: grid; font: 900 1em/1.04 var(--display); letter-spacing: -0.045em; text-wrap: balance; }
 .cs-lines > span { grid-area: 1 / 1; transform: translateY(calc((1 - var(--v)) * 0.25em)); filter: blur(calc((1 - var(--v)) * 4px)); }
 .cs-lines > span { transition: opacity 420ms var(--ease), transform 620ms var(--ease), filter 420ms var(--ease); }
 
@@ -209,7 +209,8 @@
     grid-template-areas: 'copy copy' 'phone side' 'tx tx';
     align-content: stretch; padding: 84px 16px 16px; column-gap: 12px; row-gap: 14px;
   }
-  .cs-lines { font-size: 32px; min-height: 2em; align-content: end; }
+  .cs-copy { max-width: none; font-size: 30px; padding-right: 0; }
+  .cs-lines { min-height: 2.1em; align-content: end; }
   .cs-lines > span { align-self: end; }
   .cs-phone { height: min(36vh, 300px); }
   .cs-side { align-self: start; gap: 8px; }

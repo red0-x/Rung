@@ -57,7 +57,7 @@
 .wf-nav nav { display: flex; gap: 4px; justify-content: center; font-size: 14px; font-weight: 500; }
 .wf-nav nav a { padding: 8px 14px; border-radius: 999px; transition: background-color 150ms ease, color 150ms ease; }
 .wf-nav nav a { color: var(--ink); transition: color 150ms ease; }
-.wf-nav-actions { display: inline-flex; align-items: center; justify-self: end; gap: 18px; font-size: 14px; font-weight: 500; }
+.wf-nav-actions { display: inline-flex; align-items: center; justify-self: end; gap: 14px; white-space: nowrap; font-size: 14px; font-weight: 500; }
 @media (hover: hover) and (pointer: fine) {
   .wf-nav nav a:hover { background: rgba(17, 17, 17, 0.05); }
   .wf-login:hover { color: var(--cobalt); }
@@ -157,12 +157,54 @@
 .wf-app-btns span { width: 7em; height: 2.4em; border-radius: 99px; background: rgba(255, 255, 255, 0.75); }
 .wf-app-btns span.ink { background: var(--ink); }
 
+/* ---------- For humans / For agents: segmented control, same glass as the nav ---------- */
+.wf-mode { display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(17, 17, 17, 0.05); box-shadow: inset 0 0 0 1px var(--ink-10); }
+.wf-mode button { white-space: nowrap; border: 0; background: transparent; padding: 7px 12px; border-radius: 999px; font: 500 13px/1 var(--display); color: var(--ink-60); cursor: pointer; transition: background-color 180ms var(--ease), color 180ms ease, box-shadow 180ms ease; }
+.wf-mode button[aria-selected='true'] { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(17, 17, 17, 0.08), 0 0 0 1px var(--ink-10); }
+
+/* ---------- agents view: the llms.txt content as a plain document ---------- */
+.wf-agents { max-width: 760px; margin: 0 auto; padding: 110px 24px 96px; }
+.wf-ag-bar {
+  position: sticky; top: 84px; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 8px 8px 8px 18px; border-radius: 999px; font-size: 13px; color: var(--ink-60);
+  background: rgba(255, 255, 255, 0.72); -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px);
+  box-shadow: 0 0 0 1px var(--ink-10), 0 8px 24px -12px rgba(17, 17, 17, 0.18);
+}
+.wf-ag-bar a { color: var(--cobalt); }
+.wf-ag-bar button { border: 0; padding: 9px 16px; border-radius: 999px; background: var(--ink); color: var(--bg); font: 600 13px/1 var(--display); cursor: pointer; }
+.wf-ag-doc { margin-top: 40px; font: 400 15px/1.65 ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace; }
+.wf-ag-doc h1 { font: 900 44px/1 var(--display); letter-spacing: -0.05em; margin-bottom: 16px; }
+.wf-ag-doc h1::before { content: '# '; color: var(--ink-20); }
+.wf-ag-doc h2 { font: 700 15px/1.4 inherit; margin: 36px 0 10px; }
+.wf-ag-doc h2::before { content: '## '; color: var(--ink-20); }
+.wf-ag-lede { padding-left: 16px; color: var(--ink-60); position: relative; }
+.wf-ag-lede::before { content: '>'; position: absolute; left: 0; color: var(--ink-20); }
+.wf-ag-doc ul, .wf-ag-doc ol { display: grid; gap: 6px; }
+.wf-ag-doc ol { list-style: decimal; padding-left: 22px; }
+.wf-ag-doc ul > li { padding-left: 18px; position: relative; }
+.wf-ag-doc ul > li::before { content: '-'; position: absolute; left: 0; color: var(--ink-20); }
+.wf-ag-doc li ul { margin-top: 6px; }
+.wf-ag-doc code { padding: 1px 6px; border-radius: 6px; background: rgba(17, 17, 17, 0.06); font-size: 0.92em; }
+
+/* ---------- pricing: contact only ---------- */
+.wf-price { display: grid; justify-items: center; gap: 18px; padding: 18vh 24px; text-align: center; background: var(--bg); border-top: 1px solid var(--ink-10); }
+.wf-price > p { font-size: clamp(16px, 1.4vw, 19px); color: var(--ink-60); }
+.wf-price-card {
+  margin-top: 18px; display: flex; align-items: center; gap: 28px; padding: 10px 10px 10px 30px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72); -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px);
+  box-shadow: 0 0 0 1px var(--ink-10), 0 20px 40px -20px rgba(17, 17, 17, 0.2);
+}
+.wf-price-mail { font: 700 clamp(18px, 1.8vw, 24px)/1 var(--display); letter-spacing: -0.03em; }
+.wf-price-btns { display: flex; gap: 8px; }
+.wf-btn-ghost { border: 0; cursor: pointer; font-family: inherit; }
+
 /* ---------- made with: monochrome rolling strip ---------- */
 .wf-made { display: flex; align-items: center; gap: clamp(20px, 4vw, 56px); padding: 44px max(24px, calc((100vw - 1240px) / 2 + 32px)); background: var(--bg); border-top: 1px solid var(--ink-10); }
 .wf-made > p { flex: none; font-size: 13px; font-weight: 500; color: var(--ink-60); }
 .wf-marquee { flex: 1; min-width: 0; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
 .wf-mq-track { display: flex; width: max-content; animation: wf-marquee 36s linear infinite; }
-.wf-mq-track span { padding: 0 clamp(22px, 3vw, 44px); font: 700 clamp(20px, 2vw, 28px)/1 var(--display); letter-spacing: -0.04em; color: rgba(17, 17, 17, 0.38); white-space: nowrap; }
+.wf-mq-track span { display: inline-flex; align-items: center; gap: 10px; padding: 0 clamp(22px, 3vw, 44px); font: 700 clamp(20px, 2vw, 28px)/1 var(--display); letter-spacing: -0.04em; color: rgba(17, 17, 17, 0.38); white-space: nowrap; }
+.wf-mq-track svg { width: 0.95em; height: 0.95em; fill: currentColor; flex: none; }
 @media (hover: hover) { .wf-marquee:hover .wf-mq-track { animation-play-state: paused; } }
 @keyframes wf-marquee { to { transform: translateX(-50%); } }
 
@@ -321,6 +363,15 @@
   .wf-btn-xl { height: 56px; padding: 0 18px 0 8px; }
   .wf-btn-ghost.wf-btn-xl { display: none; }
   .wf-dash { width: 92vw; top: 62vh; font-size: 5.5px; }
+  .wf-login { display: none; }
+  .wf-nav-actions { gap: 8px; }
+  .wf-mode button { padding: 7px 10px; font-size: 12px; text-transform: capitalize; }
+  .wf-mode-for { display: none; }
+  .wf-nav .wf-btn-sm { padding: 0 14px; }
+  .wf-price-card { flex-direction: column; gap: 14px; padding: 18px; border-radius: 24px; }
+  .wf-ag-bar { top: 76px; }
+  .wf-ag-bar > span { font-size: 12px; }
+  .wf-ag-doc h1 { font-size: 34px; }
   .wf-made { flex-direction: column; align-items: flex-start; gap: 16px; }
   .wf-marquee { width: 100%; }
   .wf-t-code, .wf-t-toggle, .wf-t-orange2, .wf-t-green, .wf-t-pink2, .wf-t-orange, .wf-t-yellow { display: none; }
