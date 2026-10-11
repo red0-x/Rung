@@ -18,8 +18,8 @@ No tool takes a phone number. Caller = `X-Dial-User-Number` (E.164; missing or `
 | Tool | Args | Returns |
 | --- | --- | --- |
 | `lookup_caller` | — | `{known, name, first_name, last_issue:{summary,when}\|null, has_open_request, org_name, guidance}` |
-| `send_code` | — | `{sent, expires_in_minutes:5, guidance}` · errors `rate_limited`, `sms_failed` |
-| `check_code` | `code` | `{verified, attempts_left?, reason?, guidance}` |
+| `send_code` (only if `REQUIRE_VERIFICATION`) | — | `{sent, expires_in_minutes:5, guidance}` · errors `rate_limited`, `sms_failed` |
+| `check_code` (only if `REQUIRE_VERIFICATION`) | `code` | `{verified, attempts_left?, reason?, guidance}` |
 | `save_profile` | `name`, `consent` | `{saved, name, guidance}` · errors `consent_required`, `verification_required` |
 | `triage_call` | `intent`, `amount_usd?`, `summary`, `caller_name?` | `{queued, position, estimated_callback_minutes, priority, say_to_caller, guidance}` · `verification_required` for sensitive intents without a code check in the last 10 min |
 

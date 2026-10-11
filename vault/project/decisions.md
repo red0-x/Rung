@@ -5,6 +5,11 @@ type: decisions
 
 Newest first. Append with [[templates/decision]]. Never edit an old one; supersede it.
 
+## D6 · Ship without the texted code (supersedes the SMS part of D2 for now)
+- `REQUIRE_VERIFICATION=false` by default: no `send_code` / `check_code` tools, `save_profile` needs consent only, sensitive intents queue normally and the agent won't discuss details until the callback. Trust shown is recognized/new, never "verified".
+- Why: outbound SMS to US phones is blocked until 10DLC clears (3–5 business days). Code paths stay behind the flag; set it to `true` once registered.
+- Owner: team (Jadon) · 2026-10-11
+
 ## D5 · Multi-tenant Rung, org = tenant
 - Every profile, verification and queue item belongs to exactly one org; profiles keyed `(org_id, phone)`, so a caller's memory at Company A never exists at Company B.
 - Org resolved per call from `/mcp/<org.mcp_token>`, fallback `X-Dial-Agent-Number`. Each org claims a Dial number from a pre-provisioned pool and publishes its own agent prompt.
