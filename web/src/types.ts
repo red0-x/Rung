@@ -160,7 +160,7 @@ export interface CodesResponse {
 
 export interface DialLogResponse {
   mock: boolean;
-  sms: Array<{ toMasked: string; from: string; body: string; at: number }>;
+  sms: Array<{ toMasked: string; from: string | null; body: string; at: number }>;
   patches: Array<{ numberId: string; at: number; inboundInstruction: string }>;
   callFetches: Array<{ callId: string; at: number }>;
 }

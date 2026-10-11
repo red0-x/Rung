@@ -194,7 +194,7 @@ function Editor({ org }: { org: OrgView }) {
                     <th scope="col">Intent</th>
                     <th scope="col">Points</th>
                     <th scope="col">Tier</th>
-                    <th scope="col">Sensitive</th>
+                    <th scope="col" title="Sensitive: needs a verified caller">Verify</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -523,7 +523,7 @@ function DialLog() {
   if (!d) return null;
   const rows = [
     ...d.patches.map((p) => ({ at: p.at, kind: 'PATCH', text: `/numbers/${p.numberId} · ${p.inboundInstruction.length.toLocaleString('en-US')} chars` })),
-    ...d.sms.map((s) => ({ at: s.at, kind: 'SMS', text: `${s.from} → ${s.toMasked} · ${s.body}` })),
+    ...d.sms.map((s) => ({ at: s.at, kind: 'SMS', text: `${s.from ?? '(no number)'} → ${s.toMasked} · ${s.body}` })),
     ...d.callFetches.map((c) => ({ at: c.at, kind: 'GET', text: `/calls/${c.callId}` })),
   ]
     .sort((a, b) => b.at - a.at)
