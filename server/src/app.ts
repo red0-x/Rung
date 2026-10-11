@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import cors from 'cors';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
@@ -12,7 +13,7 @@ import { loadPromptTemplate, renderPrompt } from './prompt.js';
 import { rankQueued, savedMinutes, toView } from './queue.js';
 import { scoreItem } from './scoring.js';
 import { mergeSettings, settingsPatchSchema } from './settings.js';
-import type { Org, QueueItem, Role } from './types.js';
+import type { Org, QueueItem, Role, Trust } from './types.js';
 import { verifyDialSignature } from './webhook.js';
 
 export interface AppDeps extends Deps {
@@ -23,6 +24,11 @@ export interface AppDeps extends Deps {
 }
 
 const DONE_VISIBLE_MS = 12 * 3_600_000;
+/** /api/callers reads at most this many of the org's newest queue items. */
+const CALLERS_ITEM_CAP = 2000;
+
+/** Opaque, stable caller id for the dashboard: never the phone. */
+const callerKey = (orgId: string, phone: string) => createHash('sha256').update(`${orgId}:${phone}`).digest('hex').slice(0, 16);
 const TIME_SAVED_WINDOW_MS = 24 * 3_600_000;
 
 interface Locals {
@@ -417,6 +423,83 @@ export function createApp(deps: AppDeps): Express {
     if (!item) return;
     await store.updateQueueItem(item.id, { status: 'done', doneAt: now() });
     res.json({ ok: true });
+  });
+
+  /** Cancel a callback: back in line with the original createdAt, so rank and aging resume. */
+  api.post('/queue/:id/release', async (req, res) => {
+    const item = await ownItem(res, String(req.params.id));
+    if (!item) return;
+    if (item.status !== 'in_progress') {
+      res.status(409).json({ error: 'not_in_progress' });
+      return;
+    }
+    await store.updateQueueItem(item.id, { status: 'queued', claimedAt: undefined });
+    log(`[${orgOf(res).slug}] callback released ${item.id}`);
+    res.json({ ok: true });
+  });
+
+  /** Undo Done: back in line with the original createdAt. */
+  api.post('/queue/:id/reopen', async (req, res) => {
+    const item = await ownItem(res, String(req.params.id));
+    if (!item) return;
+    if (item.status !== 'done') {
+      res.status(409).json({ error: 'not_done' });
+      return;
+    }
+    await store.updateQueueItem(item.id, { status: 'queued', doneAt: undefined });
+    log(`[${orgOf(res).slug}] reopened ${item.id}`);
+    res.json({ ok: true });
+  });
+
+  /** Everyone with a profile or any request at this org. Two queries, merged in memory (capped for demo-sized data). */
+  api.get('/callers', async (_req, res) => {
+    const org = orgOf(res);
+    const s = org.settings;
+    const [profiles, items] = await Promise.all([
+      store.listProfiles(org.id),
+      store.listQueueItems(org.id, { limit: CALLERS_ITEM_CAP }), // newest first
+    ]);
+    const byPhone = new Map<string, QueueItem[]>();
+    for (const i of items) {
+      const list = byPhone.get(i.phone);
+      if (list) list.push(i);
+      else byPhone.set(i.phone, [i]);
+    }
+    const profileByPhone = new Map(profiles.map((p) => [p.phone, p]));
+    const phones = new Set([...profileByPhone.keys(), ...byPhone.keys()]);
+    const rows = [...phones].map((phone) => {
+      const p = profileByPhone.get(phone);
+      const list = byPhone.get(phone) ?? [];
+      const last = list[0];
+      const open = list.find((i) => i.status === 'queued' || i.status === 'in_progress');
+      const meta = last ? s.intents[last.intent] : undefined;
+      const row = {
+        key: callerKey(org.id, phone),
+        name: p?.name ?? list.find((i) => i.name)?.name ?? null,
+        phoneMasked: maskPhone(phone),
+        saved: !!p,
+        trust: (p ? (p.verifiedAt ? 'verified' : 'recognized') : 'new') as Trust,
+        callCount: list.length,
+        lastCallAt: last?.createdAt ?? null,
+        lastIntentLabel: meta?.label ?? null,
+        lastTier: meta?.tier ?? null,
+        lastSummary: last?.summary ?? null,
+        lastAmountUsd: last?.amountUsd ?? null,
+        openStatus: (open?.status ?? null) as 'queued' | 'in_progress' | null,
+      };
+      return { row, activity: Math.max(last?.createdAt ?? 0, p?.createdAt ?? 0) };
+    });
+    rows.sort((a, b) => b.activity - a.activity);
+    res.json({ callers: rows.map((r) => r.row) });
+  });
+
+  api.get('/history', async (req, res) => {
+    const org = orgOf(res);
+    const raw = Number(req.query.limit);
+    const limit = Number.isFinite(raw) && raw >= 1 ? Math.min(200, Math.floor(raw)) : 50;
+    const t = now();
+    const items = await store.listQueueItems(org.id, { statuses: ['done'], orderBy: 'doneAt', limit });
+    res.json({ items: items.map((item) => toView({ item, score: scoreItem(item, t, org.settings) }, null, org.settings)) });
   });
 
   api.get('/profiles', async (_req, res) => {

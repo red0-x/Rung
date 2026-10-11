@@ -41,8 +41,11 @@ export interface Store {
   latestQueueItemForPhone(orgId: string, phone: string, statuses?: QueueStatus[]): Promise<QueueItem | undefined>;
   /** This number's newest `limit` items at this org (any status) and how many it has in total. One query. */
   phoneHistory(orgId: string, phone: string, limit: number): Promise<{ items: QueueItem[]; total: number }>;
-  /** Newest first. */
-  listQueueItems(orgId: string, opts?: { statuses?: QueueStatus[]; limit?: number; since?: number }): Promise<QueueItem[]>;
+  /** Newest first (by createdAt, or by doneAt with orderBy 'doneAt'; items without doneAt last). */
+  listQueueItems(
+    orgId: string,
+    opts?: { statuses?: QueueStatus[]; limit?: number; since?: number; orderBy?: 'createdAt' | 'doneAt' },
+  ): Promise<QueueItem[]>;
 
   /** Webhook dedupe (global). Returns true the first time an event id is seen. */
   markEventSeen(eventId: string): Promise<boolean>;
