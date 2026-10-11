@@ -26,7 +26,7 @@ One service: MCP server for Dial, webhook receiver, `/api/queue`. Owns [[project
 https://rung-liart.vercel.app  (dashboard, `/api`, `/mcp`, `/webhooks/dial`)
 
 ## Requests
-- [ ] **Deploy needed (from red):** `red0-x/Rung` `main` has the ETA text + caller facts ([[log/2026-10-11-2105-red-eta-sms-and-caller-facts]]). Please push `main` to `jadonli09/rung` so Vercel redeploys and migration `20261011210000_caller_facts_and_eta.sql` applies. Then republish both orgs' prompts (`POST /api/org/publish`). Do the prompt only after the deploy: it calls `update_profile`, which the live server lacks today.
+- [x] **Deploy needed (from red):** done 2026-10-11 by jadon (`c04be27`, prompts republished, `update_profile` live). `red0-x/Rung` `main` has the ETA text + caller facts ([[log/2026-10-11-2105-red-eta-sms-and-caller-facts]]). Please push `main` to `jadonli09/rung` so Vercel redeploys and migration `20261011210000_caller_facts_and_eta.sql` applies. Then republish both orgs' prompts (`POST /api/org/publish`). Do the prompt only after the deploy: it calls `update_profile`, which the live server lacks today.
 - [ ] **10DLC (from red):** Bank number `+1618...` is `not_registered`, Clinic `+1571...` is `with_carrier`. ETA texts to normal phones fail until approved ($25 per number, `POST /numbers/{id}/10dlc`). Who has the business or sole-proprietor details to submit the Bank number?
 
 ## Deploy setup (2026-10-11)
