@@ -88,7 +88,7 @@ describe('GET /api/callers', () => {
 
     const [maria, kim, james] = callers;
     expect(maria).toMatchObject({
-      saved: true, trust: 'verified', callCount: 2, // seeded profiles were code-verified lastIntentLabel: 'card dispute', lastTier: 'normal',
+      saved: true, trust: 'recognized', callCount: 2, lastIntentLabel: 'card dispute', lastTier: 'normal',
       lastSummary: 'Duplicate $12 charge.', lastAmountUsd: 12, openStatus: 'in_progress', lastCallAt: h.clock.t,
     });
     expect(maria.name).toBe((await h.store.getProfile(h.bank.id, MARIA))!.name);

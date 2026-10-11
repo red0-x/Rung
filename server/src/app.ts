@@ -46,6 +46,12 @@ const numberBody = z.object({ numberId: z.string().min(1) }).strict();
 
 export function createApp(deps: AppDeps): Express {
   const { store, otp, dial, cfg, now, log, auth } = deps;
+  // With texted codes off (D6) nothing on the dashboard may claim "verified": old seed/history rows show as recognized.
+  const shownTrust = (t: Trust): Trust => (!cfg.requireVerification && t === 'verified' ? 'recognized' : t);
+  const view = (...args: Parameters<typeof toView>) => {
+    const v = toView(...args);
+    return { ...v, trust: shownTrust(v.trust) };
+  };
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
@@ -358,16 +364,16 @@ export function createApp(deps: AppDeps): Express {
       store.listQueueItems(org.id, { statuses: ['done'], since: t - DONE_VISIBLE_MS - 24 * 3_600_000, limit: 50 }),
       store.listQueueItems(org.id, { since: t - TIME_SAVED_WINDOW_MS }),
     ]);
-    const queued = rankQueued(active, t, s).map((x, i) => toView(x, i + 1, s));
+    const queued = rankQueued(active, t, s).map((x, i) => view(x, i + 1, s));
     const inProgress = active
       .filter((i) => i.status === 'in_progress')
       .sort((a, b) => (b.claimedAt ?? 0) - (a.claimedAt ?? 0))
-      .map((item) => toView({ item, score: scoreItem(item, t, s) }, null, s));
+      .map((item) => view({ item, score: scoreItem(item, t, s) }, null, s));
     const done = doneList
       .filter((i) => (i.doneAt ?? i.createdAt) > t - DONE_VISIBLE_MS)
       .sort((a, b) => (b.doneAt ?? b.createdAt) - (a.doneAt ?? a.createdAt))
       .slice(0, 6)
-      .map((item) => toView({ item, score: scoreItem(item, t, s) }, null, s));
+      .map((item) => view({ item, score: scoreItem(item, t, s) }, null, s));
 
     const waits = queued.map((q) => q.waitedMin);
     const returningCallers = today.filter((i) => i.returning).length;
@@ -478,7 +484,7 @@ export function createApp(deps: AppDeps): Express {
         name: p?.name ?? list.find((i) => i.name)?.name ?? null,
         phoneMasked: maskPhone(phone),
         saved: !!p,
-        trust: (p ? (p.verifiedAt ? 'verified' : 'recognized') : 'new') as Trust,
+        trust: shownTrust((p ? (p.verifiedAt ? 'verified' : 'recognized') : 'new') as Trust),
         callCount: list.length,
         lastCallAt: last?.createdAt ?? null,
         lastIntentLabel: meta?.label ?? null,
@@ -499,7 +505,7 @@ export function createApp(deps: AppDeps): Express {
     const limit = Number.isFinite(raw) && raw >= 1 ? Math.min(200, Math.floor(raw)) : 50;
     const t = now();
     const items = await store.listQueueItems(org.id, { statuses: ['done'], orderBy: 'doneAt', limit });
-    res.json({ items: items.map((item) => toView({ item, score: scoreItem(item, t, org.settings) }, null, org.settings)) });
+    res.json({ items: items.map((item) => view({ item, score: scoreItem(item, t, org.settings) }, null, org.settings)) });
   });
 
   api.get('/profiles', async (_req, res) => {
