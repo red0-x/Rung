@@ -118,6 +118,7 @@ interface QueueResponse {
     open_request: {summary, status:'queued'|'in_progress', position:number|null, estimated_callback_minutes:number|null}|null;
     org_name: string; guidance: string }   // guidance = what to say next (welcome back / confirm name / callback #N, ~M min)
   ```
+- `triage_call` returns `{queued, position, estimated_callback_minutes, priority, name_missing, say_to_caller, guidance}`. `name_missing: true` when the item has no name (no saved profile, no `caller_name`): it is still queued, and guidance tells the agent to ask for the name and call `triage_call` again with `caller_name` (a repeat within 3 min updates the same item, keeps `createdAt`, never erases a name). `caller_name` is whitespace-normalized and title-cased only if all lower/upper case. `save_profile` also backfills the name on the caller's open item if it has none.
 - `REQUIRE_VERIFICATION` (server env, default **false**): when false, `send_code`/`check_code` are not listed, `save_profile` needs consent only, `triage_call` never returns `verification_required`, trust is only `recognized`/`new`, and `platform.demoShowCodes` is false. When true: texted-code flow as above.
 
 ## Webhooks

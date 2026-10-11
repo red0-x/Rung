@@ -56,7 +56,8 @@ describe('lookup_caller: unsaved callers with history (gaps 2 and 3)', () => {
     expect(r.guidance).toContain("You've spoken before (1 call) but they haven't saved their name.");
     expect(r.guidance).toContain('Say "Welcome back" without a name.');
     expect(r.guidance).toContain('"Asked about card limits." (earlier today)');
-    expect(r.guidance).toContain('offer to save their name');
+    expect(r.guidance).toContain('ask for their first and last name');
+    expect(r.guidance).toContain('offer to remember them');
   });
 
   it('falls back to the name given on a previous call, still offering to save', async () => {
@@ -66,8 +67,8 @@ describe('lookup_caller: unsaved callers with history (gaps 2 and 3)', () => {
     await triage(NEW_CALLER, { intent: 'other', summary: 'Asked about branch hours.' }); // no name this time
     const r = await lookup(NEW_CALLER);
     expect(r).toMatchObject({ known: false, name: 'Sam Okafor', first_name: 'Sam', name_source: 'previous_call', previous_calls: 2 });
-    expect(r.guidance).toContain('"Is this Sam?"');
-    expect(r.guidance).toContain('offer to save their name');
+    expect(r.guidance).toContain('"Is this still Sam Okafor?"');
+    expect(r.guidance).toContain('offer to remember them');
   });
 
   it('a saved profile wins over a previous-call name', async () => {
@@ -101,5 +102,57 @@ describe('lookup_caller: open request detail (gap 4)', () => {
     const clinic = await lookup(MARIA, h.clinic.mcpToken);
     expect(clinic).toMatchObject({ name: 'Dana Brooks', call_count: 1, open_request: null, has_open_request: false });
     expect(JSON.stringify(clinic)).not.toContain('Bank-only');
+  });
+});
+
+describe('always collect a name', () => {
+  it('a caller with an earlier nameless request is asked for their name on the next call', async () => {
+    await triage(NEW_CALLER, { intent: 'fraud_in_progress', amount_usd: 4200, summary: 'NVIDIA charges of $4,200 right now.' });
+    const r = await lookup(NEW_CALLER);
+    expect(r).toMatchObject({ known: false, name: null, previous_calls: 1 });
+    expect(r.guidance).toContain('ask for their first and last name');
+  });
+
+  it('triage_call without any name still queues, but flags name_missing with guidance', async () => {
+    const r = await triage(NEW_CALLER, { intent: 'fraud_in_progress', amount_usd: 4200, summary: 'NVIDIA charges of $4,200 right now.' });
+    expect(r.isError).toBe(false);
+    expect(r.data).toMatchObject({ queued: true, name_missing: true });
+    expect(r.data.guidance).toContain('call triage_call again with caller_name: it updates this same request');
+    expect((await h.api('/queue')).body.queued).toHaveLength(1);
+  });
+
+  it('the repeat call sets the name on the same item without resetting the wait or duplicating', async () => {
+    await triage(NEW_CALLER, { intent: 'fraud_in_progress', amount_usd: 4200, summary: 'NVIDIA charges of $4,200 right now.' });
+    const before = (await h.api('/queue')).body.queued[0];
+    h.advanceMin(1);
+    const r = await triage(NEW_CALLER, { intent: 'fraud_in_progress', amount_usd: 4200, summary: 'NVIDIA charges of $4,200 right now.', caller_name: '  kim   nguyen ' });
+    expect(r.data.name_missing).toBe(false);
+    const q = (await h.api('/queue')).body.queued;
+    expect(q).toHaveLength(1);
+    expect(q[0]).toMatchObject({ id: before.id, name: 'Kim Nguyen', createdAt: before.createdAt, waitedMin: 1 });
+  });
+
+  it('a later update without caller_name keeps the name already given', async () => {
+    await triage(NEW_CALLER, { intent: 'dispute', summary: 'Duplicate charge.', caller_name: 'Ana de la Cruz' });
+    const r = await triage(NEW_CALLER, { intent: 'dispute', amount_usd: 12, summary: 'Duplicate $12 charge.' });
+    expect(r.data.name_missing).toBe(false);
+    expect((await h.api('/queue')).body.queued[0].name).toBe('Ana de la Cruz'); // mixed case kept as given
+  });
+
+  it('save_profile backfills the name on the open request', async () => {
+    await call(NEW_CALLER, async (c) => {
+      await c.call('triage_call', { intent: 'dispute', summary: 'Duplicate charge.' });
+      expect((await h.api('/queue')).body.queued[0].name).toBeNull();
+      expect((await c.call('save_profile', { name: 'sam okafor', consent: true })).data).toMatchObject({ saved: true, name: 'Sam Okafor' });
+    });
+    expect((await h.api('/queue')).body.queued[0].name).toBe('Sam Okafor');
+  });
+
+  it('save_profile does not overwrite a name the request already has', async () => {
+    await call(NEW_CALLER, async (c) => {
+      await c.call('triage_call', { intent: 'dispute', summary: 'Duplicate charge.', caller_name: 'Sam Okafor' });
+      await c.call('save_profile', { name: 'Samuel Okafor', consent: true });
+    });
+    expect((await h.api('/queue')).body.queued[0].name).toBe('Sam Okafor');
   });
 });

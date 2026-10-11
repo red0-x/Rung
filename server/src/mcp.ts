@@ -44,6 +44,16 @@ export function smsText(s: string): string {
     .replace(/[^\x20-\x7E]/g, '');
 }
 
+/** Collapse whitespace; title-case only when the name came in all lower or all upper case. */
+export function normalizeName(raw: string | undefined | null): string | undefined {
+  const n = (raw ?? '').replace(/\s+/g, ' ').trim();
+  if (!n) return undefined;
+  if (n === n.toLowerCase() || n === n.toUpperCase()) {
+    return n.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
+  }
+  return n;
+}
+
 function relativeDay(then: number, now: number): string {
   const days = Math.floor((now - then) / 86_400_000);
   if (days <= 0) return 'earlier today';
@@ -138,11 +148,13 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
         guidance =
           `You've spoken before (${history.total} ${history.total === 1 ? 'call' : 'calls'}) but they haven't saved their name. ` +
           (name
-            ? `Say "Welcome back" and confirm the name they gave last time: "Is this ${firstName}?"`
-            : 'Say "Welcome back" without a name.') +
-          `${openLine} Later, offer to save their name so next time is instant.`;
+            ? `Say "Welcome back" and confirm the name they gave last time: "Is this still ${name}?"`
+            : 'Say "Welcome back" without a name. They never gave a name: once you understand the issue, ask for their first and last name (confirm the spelling if it is long or unusual) and pass it as caller_name.') +
+          `${openLine} After triage_call, offer to remember them by this number.`;
       } else {
-        guidance = `New caller. Say "${s.greeting}" and ask what happened. After you understand the issue, offer to save their details so next time is instant.`;
+        guidance =
+          `New caller. Say "${s.greeting}" and ask what happened. Once you understand the issue, ask for their first and last name ` +
+          '(confirm the spelling if it is long or unusual) and pass it to triage_call as caller_name. Then offer to remember them by this number.';
       }
 
       log(`lookup_caller ${tag(o, phone)} known=${!!profile} calls=${history.total} open=${openRequest?.status ?? 'none'}`);
@@ -273,15 +285,20 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
         return fail('verification_required', 'Verify the caller first: send_code, then check_code, then save_profile.');
       }
       const t = now();
+      const clean = normalizeName(name);
+      if (!clean) return fail('name_required', 'Ask for their first and last name before saving.');
       const profile = await store.upsertProfile({
         orgId: o.id,
         phone,
-        name: name.trim(),
+        name: clean,
         consentAt: t,
         // Only a texted code proves the number; consent alone never claims verified.
         verifiedAt: cfg.requireVerification ? t : undefined,
         createdAt: t,
       });
+      // Backfill the request this caller just made, if it was queued without a name.
+      const open = await store.latestQueueItemForPhone(o.id, phone, ['queued', 'in_progress']);
+      if (open && !open.name) await store.updateQueueItem(open.id, { name: clean });
       log(`save_profile ${tag(o, phone)}`);
       return ok({ saved: true, name: profile.name, guidance: 'Tell the caller their details are saved for next time.' });
     },
@@ -305,7 +322,11 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
           .describe(
             'A 2-3 sentence brief for the specialist, third person, facts only: what happened, when, how much, what the caller wants. They will read this before calling back.',
           ),
-        caller_name: z.string().max(80).optional().describe("The caller's name if they gave it and they have no saved profile."),
+        caller_name: z
+          .string()
+          .max(80)
+          .optional()
+          .describe("Caller's full name exactly as confirmed (spelling checked). Required unless they have a saved profile or refused to give it."),
       },
     },
     async ({ intent, amount_usd, summary, caller_name }) => {
@@ -328,17 +349,18 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
 
       const profile = await store.getProfile(o.id, phone);
       const trust: Trust = verified ? 'verified' : profile ? 'recognized' : 'new';
-      const name = profile?.name ?? (caller_name?.trim() || undefined);
+      const givenName = profile?.name ?? normalizeName(caller_name);
       const t = now();
-      const fields = {
+      const fields: Partial<QueueItem> & Pick<QueueItem, 'phone' | 'intent' | 'summary' | 'trust'> = {
         phone,
         agentNumber: ctx.agentNumber ?? undefined,
-        name,
         intent,
         amountUsd: amount_usd,
         summary: summary.trim(),
         trust,
       };
+      // Only set the name when we have one: an update must never erase a name given earlier in the call.
+      if (givenName) fields.name = givenName;
 
       const waiting = await store.latestQueueItemForPhone(o.id, phone, ['queued']);
       let item: QueueItem;
@@ -357,13 +379,17 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       const score = scoreItem(item, t, s);
       log(`triage_call ${tag(o, phone)} ${intent} -> #${position} (${score.total} pts)`);
 
+      const nameMissing = !item.name;
       return ok({
         queued: true,
         position,
         estimated_callback_minutes: eta,
         priority: score.reason,
+        name_missing: nameMissing,
         say_to_caller: `A specialist from ${o.name} already has your details and will call you back on this number in about ${eta} minutes. No need to hold.`,
-        guidance: 'Tell the caller the callback estimate, thank them, and end the call. Do not make promises beyond that.',
+        guidance: nameMissing
+          ? 'Before you end the call, ask for their first and last name (confirm the spelling if it is long or unusual), then call triage_call again with caller_name: it updates this same request. If they refuse, skip it. Then tell the caller the callback estimate, thank them, and end the call.'
+          : 'Tell the caller the callback estimate, thank them, and end the call. Do not make promises beyond that.',
       });
     },
   );

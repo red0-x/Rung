@@ -91,9 +91,22 @@ describe('prompt template', () => {
     const p = renderPrompt(loadPromptTemplate(), 'Demo Bank', defaultSettings('Demo Bank'), { require_verification: false });
     expect(p).not.toMatch(/\{\{|<!--|send_code|check_code|verification code|texted|six-digit/i);
     expect(p).toContain('call lookup_caller');
-    expect(p).toContain('call save_profile with their full name and consent set to true');
+    expect(p).toContain('call save_profile with the confirmed full name and consent set to true');
     expect(p).toContain('A specialist will confirm it\'s you and handle that on the callback.');
     expect(p).toContain('Call triage_call');
     expect(p).not.toMatch(/\n{3,}/);
+  });
+
+  it('asks every unsaved caller for a name, with spelling confirmation, in both modes', () => {
+    for (const require_verification of [false, true]) {
+      const p = renderPrompt(loadPromptTemplate(), 'Demo Bank', defaultSettings('Demo Bank'), { require_verification });
+      expect(p).toContain('"Can I get your first and last name?"');
+      expect(p).toContain('ask them to spell it, then read it back letter by letter. "That\'s N-G-U-Y-E-N, Nguyen?" Wait for a yes.');
+      expect(p).toContain('"Got it, Sam Lee."');
+      expect(p).toContain('If triage_call returns name_missing');
+      expect(p).toContain('Never ask a saved caller for their name.');
+      expect(p).toContain('"Is this still Sam Lee?"');
+      expect(p.indexOf('Can I get your first and last name')).toBeLessThan(p.indexOf('Call triage_call with'));
+    }
   });
 });
