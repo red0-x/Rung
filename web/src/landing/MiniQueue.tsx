@@ -1,4 +1,4 @@
-/** The business's view: a ranked callback queue that re-sorts as the hero call is verified. */
+/** The business's view: a ranked callback queue that re-sorts as the hero call is triaged. */
 
 type Row = {
   id: string;

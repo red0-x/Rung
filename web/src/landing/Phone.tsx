@@ -15,7 +15,7 @@ export default function Phone({ step, mark }: { step: number; mark: ReactNode })
     <div
       className="landing-phone"
       role="img"
-      aria-label="A customer's call with Rung: Maria is greeted by name, verifies with a texted code, and gets a callback in about 6 minutes."
+      aria-label="A customer's call with Rung: Maria is recognized from her number and greeted by name, explains once, and gets a callback in about 6 minutes."
     >
       <div className="landing-phone-screen" aria-hidden="true">
         <div className="landing-phone-status tnum">
@@ -52,10 +52,10 @@ export default function Phone({ step, mark }: { step: number; mark: ReactNode })
           </Step>
         </div>
 
-        <Step on={step >= 2} delay={450} className="landing-sms">
-          <span className="landing-sms-from">Text · Rung</span>
-          <span className="landing-sms-label">Your verification code</span>
-          <span className="landing-code tnum"><b>4</b><b>8</b><b>2</b><b>9</b><b>1</b><b>3</b></span>
+        <Step on={step >= 2} delay={450} className="landing-note">
+          <span className="landing-note-from">Noted for your callback</span>
+          <span className="landing-note-row"><i className="landing-dot landing-dot-critical" />Suspected fraud</span>
+          <span className="landing-note-row tnum"><i className="landing-dot landing-dot-normal" />$4,200 charge · Tuesday</span>
         </Step>
 
         <Step on={step >= 3} delay={350} className="landing-callback">

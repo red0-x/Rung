@@ -3,7 +3,7 @@ import '../brand.css';
 import './landing.css';
 import Phone from './Phone';
 import MiniQueue from './MiniQueue';
-import { Arrows, PillPattern, Sparkles, Swash, VerifiedSeal } from './Doodles';
+import { Arrows, PillPattern, Sparkles, Swash, CallerSeal } from './Doodles';
 import { useCallLoop, useCountUp, useReveal } from './motion';
 import { Logo } from '../brand/Logo';
 
@@ -71,7 +71,7 @@ export default function Landing() {
             </span>
           </h1>
           <p className="landing-sub landing-drift" style={drift(260)}>
-            Rung answers your support line, verifies every caller, and hands your team a ranked callback
+            Rung answers your support line, recognizes returning callers, and hands your team a ranked callback
             queue with a brief on each call. Your customers hang up instead of holding, and get called back.
           </p>
           <form className="landing-form landing-drift" style={drift(340)} onSubmit={onSubmit}>
@@ -109,8 +109,8 @@ export default function Landing() {
               <MiniQueue step={step} />
             </div>
 
-            <div className="landing-frag landing-frag-seal" aria-hidden={step < 3}>
-              <VerifiedSeal on={step >= 3} />
+            <div className="landing-frag landing-frag-seal" aria-hidden={step < 1}>
+              <CallerSeal on={step >= 1} />
             </div>
 
             <div
@@ -131,7 +131,7 @@ export default function Landing() {
                 <span className="landing-avatar" aria-hidden="true">MR</span>
                 <div>
                   <strong>Maria Reyes</strong>
-                  <span className="landing-muted tnum">+1 ••• ••• 0101 · 3rd call · verified</span>
+                  <span className="landing-muted tnum">+1 ••• ••• 0101 · 3rd call</span>
                 </div>
               </div>
               <p className="landing-brief-text">
@@ -163,8 +163,8 @@ export default function Landing() {
             </li>
             <li data-reveal style={{ '--rd': '80ms' } as CSSProperties}>
               <span className="landing-flow-num tnum">2</span>
-              <h3>Rung filters, verifies &amp; ranks</h3>
-              <p>A texted 6-digit code verifies the caller. Every call is scored by urgency, value and time waited.</p>
+              <h3>Rung recognizes, captures &amp; ranks</h3>
+              <p>Rung recognizes returning callers, captures the issue once, and scores it by urgency, value and time waited.</p>
             </li>
             <li data-reveal style={{ '--rd': '160ms' } as CSSProperties}>
               <span className="landing-flow-num tnum">3</span>
@@ -190,7 +190,7 @@ export default function Landing() {
               <p className="landing-side-tag">Your customers</p>
               <div className="landing-side-row"><span className="landing-side-num tnum">0<small>min</small></span><span>on hold <span className="landing-was">instead of 23</span></span></div>
               <div className="landing-side-row"><span className="landing-side-num tnum">1<small>×</small></span><span>explaining the problem <span className="landing-was">instead of 3</span></span></div>
-              <div className="landing-side-row"><span className="landing-side-num tnum">~6<small>min</small></span><span>until a person calls back, verified by a texted code</span></div>
+              <div className="landing-side-row"><span className="landing-side-num tnum">~6<small>min</small></span><span>until a person calls back</span></div>
             </div>
           </div>
           <div className="landing-cta-row" data-reveal>

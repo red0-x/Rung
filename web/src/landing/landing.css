@@ -248,7 +248,7 @@
 .landing-sparkles { position: absolute; left: -30px; top: -28px; overflow: visible; rotate: -80deg; }
 .landing-sparkles path { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-linecap: round; }
 
-/* seal: pops in when the caller is verified */
+/* seal: pops in when the caller is recognized */
 .landing-seal {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   rotate: -6deg;
@@ -303,9 +303,9 @@
 }
 .landing-phone-screen {
   position: relative;
-  display: flex; flex-direction: column; gap: 14px;
+  display: flex; flex-direction: column; gap: 12px;
   height: 100%;
-  padding: 14px 18px 26px;
+  padding: 14px 18px 28px;
   border-radius: 39px;
   background: #fff;
   overflow: hidden;
@@ -364,21 +364,13 @@
 .landing-bubble-agent { align-self: flex-start; background: rgba(17, 17, 17, 0.06); border-bottom-left-radius: 5px; }
 .landing-bubble-caller { align-self: flex-end; background: var(--ink); color: var(--ivory); border-bottom-right-radius: 5px; }
 
-.landing-sms {
-  display: flex; flex-direction: column; gap: 4px;
+.landing-note {
+  display: flex; flex-direction: column; gap: 5px;
   padding: 10px 12px 12px;
   border: var(--l-border); border-radius: 16px;
 }
-.landing-sms-from { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-60); }
-.landing-sms-label { font-size: 13px; }
-.landing-code { display: flex; gap: 5px; margin-top: 4px; }
-.landing-code b {
-  flex: 1; display: grid; place-items: center;
-  height: 36px; border-radius: 9px;
-  background: var(--ivory); border: var(--l-border);
-  font-size: 19px; font-weight: 700;
-}
-.landing-code b:nth-child(3) { margin-right: 6px; }
+.landing-note-from { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-60); }
+.landing-note-row { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
 
 .landing-callback {
   margin-top: auto;

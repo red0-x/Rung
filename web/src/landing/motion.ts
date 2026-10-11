@@ -35,7 +35,7 @@ export function useInView(ref: RefObject<Element | null>, once = false, rootMarg
 }
 
 /**
- * The hero's call sequence. 0 ringing, 1 greeted, 2 code texted / caller queued, 3 verified + ranked.
+ * The hero's call sequence. 0 ringing, 1 recognized + greeted, 2 issue captured / caller queued, 3 triaged + ranked.
  * Holds on the final step, then quietly restarts. Paused off-screen; pinned to the final step under reduced motion.
  */
 export const FINAL_STEP = 3;

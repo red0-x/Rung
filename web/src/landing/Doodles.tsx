@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-/** Hand-drawn accents: arrows, swash, sparkles, and the scalloped "Verified" seal. All inline SVG. */
+/** Hand-drawn accents: arrows, swash, sparkles, and the scalloped "Known caller" seal. All inline SVG. */
 
 type Pt = [number, number];
 
@@ -80,14 +80,15 @@ function sealPath(n: number, r: number, bump: number, cx = 50, cy = 50): string 
 
 const SEAL = sealPath(14, 40, 10);
 
-export function VerifiedSeal({ on }: { on: boolean }) {
+/** Recognized by caller ID: pops in when Rung greets the caller by name. */
+export function CallerSeal({ on }: { on: boolean }) {
   return (
     <div className="landing-seal" data-on={on}>
-      <svg viewBox="0 0 100 100" width="104" height="104" role="img" aria-label="Verified">
+      <svg viewBox="0 0 100 100" width="104" height="104" role="img" aria-label="Known caller">
         <path d={SEAL} fill="var(--cobalt)" />
         <path d="M33 51 L45 63 L68 38" fill="none" stroke="var(--ivory)" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className="landing-seal-label">Verified ✓</span>
+      <span className="landing-seal-label">Known caller ✓</span>
     </div>
   );
 }
