@@ -6,6 +6,7 @@ import type {
   DialLogResponse,
   HealthResponse,
   MeResponse,
+  NextResponse,
   NumbersResponse,
   OrgPatch,
   OrgResponse,
@@ -30,6 +31,8 @@ export class ApiError extends Error {
     public status: number,
     public code: string,
     message?: string,
+    /** Full JSON error body (e.g. `claimedBy` on 409 already_claimed). */
+    public body: Record<string, unknown> = {},
   ) {
     super(message || code || `HTTP ${status}`);
   }
@@ -53,15 +56,17 @@ async function request<T>(path: string, init: { method?: string; body?: unknown 
   if (!res.ok) {
     let code = '';
     let message: string | undefined;
+    let body: Record<string, unknown> = {};
     try {
-      const body = (await res.json()) as { error?: string; message?: string };
-      code = body.error ?? '';
-      message = body.message;
+      body = (await res.json()) as Record<string, unknown>;
+      code = typeof body.error === 'string' ? body.error : '';
+      message = typeof body.message === 'string' ? body.message : undefined;
     } catch {
       /* non-JSON error body */
     }
-    throw new ApiError(res.status, code || `http_${res.status}`, message || (code ? undefined : `${res.status} ${res.statusText}`));
+    throw new ApiError(res.status, code || `http_${res.status}`, message || (code ? undefined : `${res.status} ${res.statusText}`), body);
   }
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -80,6 +85,8 @@ export const api = {
   queue: () => request<QueueResponse>('/api/queue'),
   transcript: (id: string) => request<TranscriptResponse>(`/api/queue/${enc(id)}/transcript`),
   callback: (id: string) => request<CallbackResponse>(`/api/queue/${enc(id)}/callback`, { method: 'POST' }),
+  /** Claim the top-ranked waiting caller. Undefined when nobody is waiting. */
+  next: () => request<NextResponse | undefined>('/api/queue/next', { method: 'POST' }),
   done: (id: string) => request<{ ok: true }>(`/api/queue/${enc(id)}/done`, { method: 'POST' }),
   release: (id: string) => request<{ ok: true }>(`/api/queue/${enc(id)}/release`, { method: 'POST' }),
   reopen: (id: string) => request<{ ok: true }>(`/api/queue/${enc(id)}/reopen`, { method: 'POST' }),
@@ -102,6 +109,10 @@ export function errorText(err: unknown): string {
       already_member: 'You already belong to a company.',
       not_in_progress: 'That callback was already finished or cancelled.',
       not_done: 'That call is no longer marked done.',
+      already_claimed: 'A teammate is already calling them.',
+      not_claimer: "That's a teammate's callback. Only they or an admin can finish or cancel it.",
+      at_capacity: 'Finish your current callback first.',
+      not_queued: 'That caller is no longer waiting.',
       invalid: 'Some settings are not valid.',
     };
     const base = known[err.code] ?? err.message;

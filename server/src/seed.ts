@@ -11,6 +11,8 @@ export interface SeedOrg {
   slug: string;
   /** Env var holding the demo user's email (linked as admin). */
   memberEmailEnv: 'DEMO_BANK_EMAIL' | 'DEMO_CLINIC_EMAIL';
+  /** Comma-separated emails added as reps (a demo team; each needs its own login). */
+  repEmailsEnv: 'DEMO_BANK_REPS' | 'DEMO_CLINIC_REPS';
   /** Used when the env var is unset (the confirmed demo users in the Rung Supabase project). */
   defaultEmail: string;
   settings?: SettingsPatch;
@@ -30,6 +32,7 @@ export const SEED_ORGS: SeedOrg[] = [
     name: 'Bank of Antarctica',
     slug: 'demo-bank',
     memberEmailEnv: 'DEMO_BANK_EMAIL',
+    repEmailsEnv: 'DEMO_BANK_REPS',
     defaultEmail: 'bank@rung.demo',
     settings: { greeting: "Thanks for calling Bank of Antarctica's priority line." },
     callers: [
@@ -49,6 +52,7 @@ export const SEED_ORGS: SeedOrg[] = [
     name: 'Mango Clinic',
     slug: 'northside-clinic',
     memberEmailEnv: 'DEMO_CLINIC_EMAIL',
+    repEmailsEnv: 'DEMO_CLINIC_REPS',
     defaultEmail: 'clinic@rung.demo',
     settings: {
       greeting: 'Thanks for calling Mango Clinic.',
@@ -105,6 +109,11 @@ async function ensureOrg(spec: SeedOrg, deps: SeedDeps): Promise<Org> {
     const userId = await auth.userIdForEmail(email);
     if (userId) await store.addMember({ orgId: org.id, userId, role: 'admin' });
     else log(`seed: no auth user for ${spec.memberEmailEnv}; ${spec.slug} has no member`);
+  }
+  for (const rep of (env[spec.repEmailsEnv] ?? '').split(',').map((e) => e.trim()).filter(Boolean)) {
+    const userId = await auth.userIdForEmail(rep);
+    if (userId) await store.addMember({ orgId: org.id, userId, role: 'rep' });
+    else log(`seed: no auth user for rep ${rep} (sign them up first); skipped`);
   }
   return org;
 }

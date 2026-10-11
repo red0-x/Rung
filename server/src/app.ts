@@ -12,6 +12,7 @@ import { buildMcpServer, type Deps } from './mcp.js';
 import { createOrg, toOrgView } from './orgs.js';
 import { loadPromptTemplate, renderPrompt } from './prompt.js';
 import { rankQueued, savedMinutes, toView } from './queue.js';
+import { HEARTBEAT_MS, repName, repViews } from './reps.js';
 import { scoreItem } from './scoring.js';
 import { mergeSettings, settingsPatchSchema } from './settings.js';
 import type { Org, QueueItem, Role, Trust } from './types.js';
@@ -205,6 +206,11 @@ export function createApp(deps: AppDeps): Express {
     }
     const m = await store.getMembership(user.id);
     const org = m ? ((await store.getOrg(m.orgId)) ?? null) : null;
+    // Presence heartbeat (throttled): any signed-in request means this rep has the dashboard open.
+    const t = now();
+    if (m && org && (m.lastSeenAt === undefined || t - m.lastSeenAt > HEARTBEAT_MS)) {
+      await store.touchMember(org.id, user.id, t, repName(user.email));
+    }
     Object.assign(res.locals, { user, org, role: org ? m!.role : null } satisfies Locals);
     next();
   });
@@ -361,11 +367,13 @@ export function createApp(deps: AppDeps): Express {
     const org = orgOf(res);
     const s = org.settings;
     const t = now();
-    const [active, doneList, today] = await Promise.all([
+    const [active, doneList, today, members] = await Promise.all([
       store.listQueueItems(org.id, { statuses: ['queued', 'in_progress'] }),
       store.listQueueItems(org.id, { statuses: ['done'], since: t - DONE_VISIBLE_MS - 24 * 3_600_000, limit: 50 }),
       store.listQueueItems(org.id, { since: t - TIME_SAVED_WINDOW_MS }),
+      store.listMembers(org.id),
     ]);
+    const reps = repViews(members, active.filter((i) => i.status === 'in_progress'), t);
     const queued = rankQueued(active, t, s).map((x, i) => view(x, i + 1, s));
     const inProgress = active
       .filter((i) => i.status === 'in_progress')
@@ -390,6 +398,9 @@ export function createApp(deps: AppDeps): Express {
         longestWaitMin: waits.length ? Math.max(...waits) : 0,
         avgWaitMin: waits.length ? Math.round(waits.reduce((a, b) => a + b, 0) / waits.length) : 0,
       },
+      me: L(res).user.id,
+      reps,
+      availableReps: reps.filter((r) => r.online && !r.busy).length,
       timeSaved: {
         totalMin: today.reduce((sum, i) => sum + savedMinutes(i, s), 0),
         callers: today.length,
@@ -417,21 +428,76 @@ export function createApp(deps: AppDeps): Express {
     res.json({ transcript: item.transcript ?? null, turns: item.transcriptTurns ?? null });
   });
 
-  // The list masks numbers; the full number is only released when a rep claims the item.
-  api.post('/queue/:id/callback', async (req, res) => {
-    const item = await ownItem(res, String(req.params.id));
-    if (!item) return;
-    await store.updateQueueItem(item.id, { status: 'in_progress', claimedAt: now() });
+  /** The rep's own claim fields, set together on every claim. */
+  const claimBy = (res: Response) => {
+    const { user } = L(res);
+    return { status: 'in_progress' as const, claimedAt: now(), claimedBy: user.id, claimedByName: repName(user.email) };
+  };
+  const unclaimed = { claimedAt: undefined, claimedBy: undefined, claimedByName: undefined };
+  const phoneOf = (item: QueueItem) => ({ phone: item.phone, tel: `tel:${item.phone}` });
+  const trackCallback = (res: Response, item: QueueItem) => {
     const org = orgOf(res);
     deps.keewano?.track('callback_made', org.slug, item.phone, scoreItem(item, now(), org.settings).tier);
     if (cfg.inlineWebhooks && deps.keewano) waitUntil(deps.keewano.flush().catch(() => {}));
+  };
+
+  /** Someone else's callback: only they or an admin may finish or cancel it. Unowned (pre-multi-rep) items are fair game. */
+  const othersClaim = (res: Response, item: QueueItem) => {
+    const { user, role } = L(res);
+    if (item.status !== 'in_progress' || !item.claimedBy || item.claimedBy === user.id || role === 'admin') return false;
+    res.status(403).json({ error: 'not_claimer', claimedBy: { id: item.claimedBy, name: item.claimedByName ?? 'Rep' } });
+    return true;
+  };
+
+  // The list masks numbers; the full number is only released when a rep claims the item.
+  // The claim is compare-and-set on status, so two reps clicking the same caller can't both get the number.
+  api.post('/queue/:id/callback', async (req, res) => {
+    const item = await ownItem(res, String(req.params.id));
+    if (!item) return;
+    if (item.status === 'in_progress' && item.claimedBy === L(res).user.id) {
+      res.json(phoneOf(item)); // re-dial your own claim
+      return;
+    }
+    const claimed = item.status === 'queued' ? await store.updateQueueItemIf(item.id, 'queued', claimBy(res)) : undefined;
+    if (!claimed) {
+      const cur = (await store.getQueueItem(item.id)) ?? item;
+      res.status(409).json(
+        cur.status === 'in_progress'
+          ? { error: 'already_claimed', claimedBy: cur.claimedBy ? { id: cur.claimedBy, name: cur.claimedByName ?? 'Rep' } : null }
+          : { error: 'not_queued' },
+      );
+      return;
+    }
+    trackCallback(res, claimed);
     log(`[${orgOf(res).slug}] callback claimed ${item.id} by ${L(res).user.email}`);
-    res.json({ phone: item.phone, tel: `tel:${item.phone}` });
+    res.json(phoneOf(claimed));
+  });
+
+  /** Take next: claim the top-ranked unclaimed caller. One open callback per rep; 204 when nobody is waiting. */
+  api.post('/queue/next', async (_req, res) => {
+    const org = orgOf(res);
+    const me = L(res).user.id;
+    const active = await store.listQueueItems(org.id, { statuses: ['queued', 'in_progress'] });
+    const mine = active.find((i) => i.status === 'in_progress' && i.claimedBy === me);
+    if (mine) {
+      res.status(409).json({ error: 'at_capacity', id: mine.id });
+      return;
+    }
+    // Lost a race for the top caller? Try the next one down.
+    for (const candidate of rankQueued(active, now(), org.settings)) {
+      const claimed = await store.updateQueueItemIf(candidate.item.id, 'queued', claimBy(res));
+      if (!claimed) continue;
+      trackCallback(res, claimed);
+      log(`[${org.slug}] next -> ${claimed.id} for ${L(res).user.email}`);
+      res.json({ item: view({ item: claimed, score: scoreItem(claimed, now(), org.settings) }, null, org.settings), ...phoneOf(claimed) });
+      return;
+    }
+    res.status(204).end();
   });
 
   api.post('/queue/:id/done', async (req, res) => {
     const item = await ownItem(res, String(req.params.id));
-    if (!item) return;
+    if (!item || othersClaim(res, item)) return;
     await store.updateQueueItem(item.id, { status: 'done', doneAt: now() });
     const org = orgOf(res);
     deps.keewano?.track('call_done', org.slug, item.phone, scoreItem(item, now(), org.settings).tier);
@@ -447,7 +513,8 @@ export function createApp(deps: AppDeps): Express {
       res.status(409).json({ error: 'not_in_progress' });
       return;
     }
-    await store.updateQueueItem(item.id, { status: 'queued', claimedAt: undefined });
+    if (othersClaim(res, item)) return;
+    await store.updateQueueItem(item.id, { status: 'queued', ...unclaimed });
     log(`[${orgOf(res).slug}] callback released ${item.id}`);
     res.json({ ok: true });
   });
@@ -460,7 +527,7 @@ export function createApp(deps: AppDeps): Express {
       res.status(409).json({ error: 'not_done' });
       return;
     }
-    await store.updateQueueItem(item.id, { status: 'queued', doneAt: undefined });
+    await store.updateQueueItem(item.id, { status: 'queued', doneAt: undefined, ...unclaimed });
     log(`[${orgOf(res).slug}] reopened ${item.id}`);
     res.json({ ok: true });
   });

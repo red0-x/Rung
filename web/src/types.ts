@@ -67,6 +67,8 @@ export interface QueueItemView {
   status: QueueStatus;
   createdAt: number;
   claimedAt: number | null;
+  /** Rep holding the callback, null while queued. */
+  claimedBy: { id: string; name: string } | null;
   doneAt: number | null;
   waitedMin: number;
   score: { urgency: number; value: number; aging: number; total: number };
@@ -76,12 +78,29 @@ export interface QueueItemView {
   durationSeconds: number | null;
 }
 
+export interface RepView {
+  id: string;
+  name: string;
+  role: 'admin' | 'rep';
+  online: boolean;
+  busy: boolean;
+}
+
+export interface NextResponse extends CallbackResponse {
+  item: QueueItemView;
+}
+
 export interface QueueResponse {
   now: number;
   queued: QueueItemView[];
   inProgress: QueueItemView[];
   done: QueueItemView[];
   stats: { waiting: number; inProgress: number; longestWaitMin: number; avgWaitMin: number };
+  /** Signed-in user's id, to tell your callbacks from teammates'. */
+  me: string;
+  reps: RepView[];
+  /** Online and not holding a callback. */
+  availableReps: number;
   timeSaved: {
     totalMin: number;
     callers: number;
@@ -104,7 +123,7 @@ export interface HealthResponse {
 export interface MeResponse {
   user: { id: string; email: string };
   org: OrgView | null;
-  role: 'admin' | null;
+  role: 'admin' | 'rep' | null;
   platform: { dial: DialMode; demoShowCodes: boolean; enableDev: boolean; requireVerification?: boolean };
 }
 

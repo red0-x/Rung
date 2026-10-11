@@ -61,6 +61,7 @@ export default function QueuePage() {
   const { me } = useAuth();
   const org = me?.org;
   const settings = org?.settings;
+  const isAdmin = me?.role === 'admin';
   const requireVerification = me?.platform.requireVerification ?? false;
   const queue = usePoll(api.queue, 1500);
   // Texted codes only exist when verification is on; the endpoint 404s otherwise.
@@ -179,6 +180,10 @@ export default function QueuePage() {
   }, [selected, selectedId, held, pinned]);
 
   const firstName = (i: QueueItemView) => i.name?.split(' ')[0] ?? 'The caller';
+  /** Your callback, or one from before claims were tracked. Teammates' callbacks are view-only for reps. */
+  const mine = (i: QueueItemView) => !i.claimedBy || i.claimedBy.id === data?.me;
+  const onlineReps = data?.reps.filter((r) => r.online).length ?? 0;
+  const etaReps = onlineReps || settings?.repsOnShift || 1;
 
   const claim = useCallback(
     async (item: QueueItemView) => {
@@ -190,13 +195,38 @@ export default function QueuePage() {
         pick(item.id);
         queue.refresh();
       } catch (err) {
-        showToast({ text: `Could not start the callback. ${errorText(err)}`, tone: 'error' });
+        const by = err instanceof ApiError ? (err.body.claimedBy as { name?: string } | null | undefined)?.name : undefined;
+        showToast({ text: by ? `${by} is already calling ${firstName(item)}.` : `Could not start the callback. ${errorText(err)}`, tone: 'error' });
+        queue.refresh();
       } finally {
         setBusy(null);
       }
     },
     [queue, pick, showToast],
   );
+
+  /** Take next: the server picks the top caller nobody has claimed, so teammates never collide. */
+  const [taking, setTaking] = useState(false);
+  const takeNext = useCallback(async () => {
+    setTaking(true);
+    try {
+      const res = await api.next();
+      if (!res) {
+        showToast({ text: 'No one is waiting.' });
+        return;
+      }
+      setPhones((p) => ({ ...p, [res.item.id]: { phone: res.phone, tel: res.tel } }));
+      setLocal((l) => ({ ...l, [res.item.id]: { status: 'in_progress', item: res.item, at: Date.now() } }));
+      pick(res.item.id);
+      setSheetOpen(true);
+      queue.refresh();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'at_capacity' && typeof err.body.id === 'string') pick(err.body.id);
+      showToast({ text: errorText(err), tone: 'error' });
+    } finally {
+      setTaking(false);
+    }
+  }, [queue, pick, showToast]);
 
   const reopen = useCallback(
     async (item: QueueItemView) => {
@@ -273,7 +303,7 @@ export default function QueuePage() {
   return (
     <div className="queue-page">
       <div className="q-main">
-        <PageHeader title={`${greeting()}, ${org?.name ?? 'there'}`} sentence={sentence} right={<ReadyPill offline={!!queue.error} />} />
+        <PageHeader title={`${greeting()}, ${org?.name ?? 'there'}`} sentence={sentence} right={<ReadyPill offline={!!queue.error} reps={data ? { online: onlineReps, available: data.availableReps } : undefined} />} />
 
         {queue.error && (
           <p className="banner" role="alert">
@@ -300,6 +330,9 @@ export default function QueuePage() {
           <section className="md-list" aria-labelledby="list-h">
             <div className="section-head">
               <h2 id="list-h">Callback queue</h2>
+              <button type="button" className="btn btn-primary take-next" disabled={taking || !queued.length} onClick={() => void takeNext()}>
+                {taking ? 'Taking…' : 'Take next'}
+              </button>
               <label className="pill-select">
                 <span className="sr">Show</span>
                 <select value={filter} onChange={(e) => setFilter(e.target.value as Filter)}>
@@ -336,6 +369,7 @@ export default function QueuePage() {
                         agingCap={agingCap}
                         selected={selected?.id === item.id}
                         leaving={leaving}
+                        mine={mine(item)}
                         onSelect={(id) => {
                           pick(id);
                           setSheetOpen(true);
@@ -383,7 +417,9 @@ export default function QueuePage() {
                   agingCap={agingCap}
                   scaleMax={scaleMax}
                   phone={phones[selected.id]}
-                  etaMin={Math.max(1, Math.ceil((((selected.rank ?? 1) * (settings?.avgHandleMin ?? 4)) / Math.max(1, settings?.repsOnShift ?? 1))))}
+                  etaMin={Math.max(1, Math.ceil(((selected.rank ?? 1) * (settings?.avgHandleMin ?? 4)) / etaReps))}
+                  teammate={mine(selected) ? undefined : selected.claimedBy?.name}
+                  canManage={isAdmin || mine(selected)}
                   busy={busy?.id === selected.id ? busy.kind : null}
                   onCallBack={claim}
                   onDone={finish}

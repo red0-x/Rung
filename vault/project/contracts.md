@@ -1,7 +1,7 @@
 ---
 type: contract
 owner: backend
-version: 3
+version: 4
 ---
 # Contracts (v3 · multi-tenant Rung)
 
@@ -36,6 +36,7 @@ OTP: 6 digits, hashed, 5 min TTL, 5 attempts, 3 sends / 10 min, verified for 10 
 - Value tiers: $100=8, $1k=16, $10k=24, $100k=32, $1M=40. Aging 2/min, cap 150. All editable per org in `/setup`.
 - Demo: fraud $4,200 = 116, $10M opening = 60, $12 dispute = 20. After 45 min the dispute beats a fresh $10M opening.
 - Reason: `Urgent: suspected fraud · $4,200 · waited 6 min · +12 aging`.
+- Callback estimate = `ceil(position × avgHandleMin ÷ reps)`, reps = members online (dashboard polled in the last 60 s), else `repsOnShift`.
 - Time saved per caller = `baselineHoldMin (23) + reexplainMin (3) if returning`.
 
 ## Database (Supabase Postgres, project `Rung`)
@@ -43,11 +44,11 @@ Migration `supabase/migrations/20261011200000_rung_multitenant.sql`. RLS on, no 
 
 ```
 orgs(id, name, slug uq, mcp_token uq, dial_number uq, dial_number_id uq, settings jsonb, published_at, created_at)
-org_members(org_id, user_id → auth.users, role, pk(org_id,user_id))
+org_members(org_id, user_id → auth.users, role admin|rep, name, last_seen_at, pk(org_id,user_id))
 profiles(org_id, phone, name, consent_at, verified_at, created_at, pk(org_id,phone))
 verifications(org_id, phone, code_hash, expires_at, attempts, window_start, issue_count, verified_until, pk(org_id,phone))
 queue_items(id, org_id, phone, agent_number, name, intent, amount_usd, summary, trust, is_returning, status,
-            created_at, claimed_at, done_at, call_id, transcript, transcript_turns, duration_seconds)
+            created_at, claimed_at, claimed_by → auth.users, claimed_by_name, done_at, call_id, transcript, transcript_turns, duration_seconds)
 seen_events(event_id pk, seen_at)
 ```
 
@@ -55,7 +56,7 @@ seen_events(event_id pk, seen_at)
 Auth: `Authorization: Bearer <Supabase access token>` (dev: `dev:<email>`). 401 no token · 403 `no_org` · 404 other org's ids.
 - `GET /api/health` (public) · `GET /api/me` · `POST/GET/PATCH /api/org` · `GET /api/numbers` · `POST /api/org/number`
 - `GET|POST /api/prompt-preview` · `POST /api/org/publish` (→ Dial `PATCH /numbers/{id}` `{inboundInstruction}`)
-- `GET /api/queue` · `GET /api/queue/:id/transcript` · `POST /api/queue/:id/callback` (only place the full number is returned) · `POST /api/queue/:id/done`
+- `GET /api/queue` · `GET /api/queue/:id/transcript` · `POST /api/queue/:id/callback` (atomic claim; `409 already_claimed`) · `POST /api/queue/next` (take top unclaimed; `204` empty, `409 at_capacity`) · these two are the only places the full number is returned · `POST /api/queue/:id/done` / `release` (`403 not_claimer` unless admin) · `GET /api/queue` adds `me`, `reps[]`, `availableReps`, items `claimedBy`
 - `GET /api/profiles` · `GET /api/dev/codes` · `GET /api/dev/dial-log` · `POST /api/dev/reset`
 - `POST /webhooks/dial`: HMAC `t=,v1=`, 5 min tolerance, dedupe `X-Dial-Event-ID`, 200 before processing. `call.ended` → org from `data.to`; `call.transcribed` → fetch call, store transcript.
 

@@ -9,6 +9,7 @@ import { waitUntil } from '@vercel/functions';
 import { maskPhone, type CallerCtx } from './identity.js';
 import { RateLimitError, type OtpService } from './otp.js';
 import { rankQueued } from './queue.js';
+import { repsForEta } from './reps.js';
 import { estimateCallbackMinutes, scoreItem } from './scoring.js';
 import { describeFacts, factsInput, hasFacts, mergeFacts, missingFacts } from './facts.js';
 import { clockTime, confirmationSms, smsText } from './sms.js';
@@ -109,10 +110,11 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       const t = now();
       const s = o.settings;
       // One round of parallel reads: profile, this number's history, the org's active queue (for position).
-      const [profile, history, active] = await Promise.all([
+      const [profile, history, active, members] = await Promise.all([
         store.getProfile(o.id, phone),
         store.phoneHistory(o.id, phone, RECENT_ISSUES),
         store.listQueueItems(o.id, { statuses: ['queued', 'in_progress'] }),
+        store.listMembers(o.id),
       ]);
       const recent = history.items;
       const last = recent[0];
@@ -131,7 +133,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
             summary: openItem.summary,
             status: 'queued',
             position,
-            estimated_callback_minutes: estimateCallbackMinutes(position, s.avgHandleMin, s.repsOnShift),
+            estimated_callback_minutes: estimateCallbackMinutes(position, s.avgHandleMin, repsForEta(members, t, s)),
           };
         } else {
           openRequest = { summary: openItem.summary, status: 'in_progress', position: null, estimated_callback_minutes: null };
@@ -439,11 +441,12 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
         item = await store.addQueueItem({ id: randomUUID(), orgId: o.id, status: 'queued', createdAt: t, returning, ...fields });
       }
 
-      const ranked = rankQueued(await store.listQueueItems(o.id, { statuses: ['queued'] }), t, s);
+      const [queuedNow, members] = await Promise.all([store.listQueueItems(o.id, { statuses: ['queued'] }), store.listMembers(o.id)]);
+      const ranked = rankQueued(queuedNow, t, s);
       const position = Math.max(1, ranked.findIndex((r) => r.item.id === item.id) + 1);
       // Once the confirmation text is out, that time is the promise: a repeat triage_call (name backfill) must not change it.
       const texted0 = item.smsStatus === 'sent' && item.etaMinutes !== undefined && item.etaAt !== undefined;
-      const eta = texted0 ? item.etaMinutes! : estimateCallbackMinutes(position, s.avgHandleMin, s.repsOnShift);
+      const eta = texted0 ? item.etaMinutes! : estimateCallbackMinutes(position, s.avgHandleMin, repsForEta(members, t, s));
       const etaAt = texted0 ? item.etaAt! : t + eta * 60_000;
       const score = scoreItem(item, t, s);
       emit('call_queued', o, phone, score.tier);

@@ -1,14 +1,15 @@
-# Rung API contract (v3)
+# Rung API contract (v4)
 
 The server (`server/`) and dashboard (`web/`) both build to this file. Change it only together.
 
 - Server listens on `PORT` (default **8787**). Web dev server on **5173** proxies `/api` to it.
 - All JSON. Timestamps are **epoch milliseconds** (numbers). Money in whole USD (number).
-- Phones are E.164. Lists only ever carry `phoneMasked` (`+1••••••0101`). The full number is returned only by `POST /api/queue/:id/callback`.
+- Phones are E.164. Lists only ever carry `phoneMasked` (`+1••••••0101`). The full number is returned only by `POST /api/queue/:id/callback` and `POST /api/queue/next`.
 
 ## Auth
 
 - `/api/health` is public. Everything else under `/api/*` needs `Authorization: Bearer <token>`.
+- Several reps per org (`org_members.role` `admin` | `rep`), one login each. Any signed-in request is a presence heartbeat (`org_members.last_seen_at`, written at most every 15 s). Rep display name = the email's plus-tag (`me+sam@x.com` → `Sam`) or local part.
 - `<token>` = the Supabase access token (`session.access_token`). Server verifies with `supabase.auth.getUser(token)`.
 - Dev/test only (`ENABLE_DEV`, never in production): `Bearer dev:<email>` is accepted as that user. `dev:<DEMO_BANK_EMAIL>` is a member of Bank of Antarctica, `dev:<DEMO_CLINIC_EMAIL>` of the clinic, in both memory and Supabase stores.
 - Errors: `401 {error:"unauthorized"}` (missing/bad token) · `403 {error:"no_org"}` (signed in, no org yet: send the user to `/setup`) · `404 {error:"not_found"}` (unknown id **or another org's id**) · `400 {error:"<code>", message?}` · `409 {error:"<code>"}`.
@@ -50,7 +51,7 @@ interface QueueItemView {
   id: string; rank: number | null; name: string | null; phoneMasked: string;
   intent: Intent; intentLabel: string; tier: Tier; tierLabel: string;
   amountUsd: number | null; summary: string; trust: Trust; returning: boolean;
-  status: QueueStatus; createdAt: number; claimedAt: number | null; doneAt: number | null;
+  status: QueueStatus; createdAt: number; claimedAt: number | null; claimedBy: {id, name} | null; doneAt: number | null;
   waitedMin: number;
   score: { urgency: number; value: number; aging: number; total: number };
   reason: string;            // "Urgent: suspected fraud · $4,200 · waited 6 min · +12 aging"
@@ -77,9 +78,10 @@ Tier labels: critical "Critical", high "High", normal "Normal", low "Low".
 | POST | `/api/org/publish` | | `{ok:true, mock:boolean, numberId, number, request:{method:'PATCH', path:'/numbers/<id>', body:{inboundInstruction}}}`; `400 no_number`; `502 dial_failed` if Dial rejects it |
 | GET | `/api/queue` | | `QueueResponse` (below) |
 | GET | `/api/queue/:id/transcript` | | `{transcript:string\|null, turns:[{speaker,text}]\|null}` |
-| POST | `/api/queue/:id/callback` | | `{phone, tel}` and status → `in_progress` |
-| POST | `/api/queue/:id/done` | | `{ok:true}` |
-| POST | `/api/queue/:id/release` | | Cancel a callback: `in_progress` → `queued`, `claimedAt` cleared, `createdAt` kept (caller keeps their place). `{ok:true}`; `409 not_in_progress` |
+| POST | `/api/queue/:id/callback` | | Atomic claim (compare-and-set on `queued`): `{phone, tel}`, status → `in_progress`, `claimedBy` = you. Re-calling your own claim returns the number again. `409 already_claimed {claimedBy:{id,name}}` · `409 not_queued` |
+| POST | `/api/queue/next` | | Take next: claims the top-ranked `queued` item. `{item: QueueItemView, phone, tel}`; `204` nobody waiting; `409 at_capacity {id}` you already hold a callback |
+| POST | `/api/queue/:id/done` | | `{ok:true}`. Someone else's claim: `403 not_claimer {claimedBy}` unless you're admin |
+| POST | `/api/queue/:id/release` | | Cancel a callback: `in_progress` → `queued`, `claimedAt`/`claimedBy` cleared, `createdAt` kept (caller keeps their place). `{ok:true}`; `409 not_in_progress`; `403 not_claimer` (as Done) |
 | POST | `/api/queue/:id/reopen` | | Undo Done: `done` → `queued`, `doneAt` cleared, `createdAt` kept. `{ok:true}`; `409 not_done` |
 | GET | `/api/callers` | | `{callers: CallerRow[]}` everyone who has a profile OR any queue item at this org, newest activity first |
 | GET | `/api/history?limit=50` | | `{items: QueueItemView[]}` `done` items, newest `doneAt` first, any age (limit ≤ 200, default 50) |
@@ -95,6 +97,9 @@ interface QueueResponse {
   inProgress: QueueItemView[];
   done: QueueItemView[];          // last 6 within 12h
   stats: { waiting: number; inProgress: number; longestWaitMin: number; avgWaitMin: number };
+  me: string;                 // signed-in user id (tell your callbacks from teammates')
+  reps: {id, name, role:'admin'|'rep', online:boolean, busy:boolean}[];  // online = polled in the last 60 s; busy = holds a callback
+  availableReps: number;      // online && !busy
   timeSaved: {
     totalMin: number; callers: number;      // over queued + inProgress + done (today)
     baselineHoldMin: number; reexplainMin: number; returningCallers: number;

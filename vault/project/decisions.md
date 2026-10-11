@@ -5,6 +5,12 @@ type: decisions
 
 Newest first. Append with [[templates/decision]]. Never edit an old one; supersede it.
 
+## D7 · Several reps per org: pull-based claims, one login each
+- A callback is claimed with a compare-and-set on `status='queued'`; the loser gets `409 already_claimed`. Reps press **Take next** (server hands out the top unclaimed caller, one open callback each) instead of the server pushing calls. Only the claimer or an admin can finish/cancel. Presence = dashboard heartbeat; callback estimates divide by reps online.
+- Every rep has their own login (demo: Gmail plus-addresses + `DEMO_BANK_REPS`). Invite codes come after the demo.
+- Why: modeled on Zendesk Talk (first agent to accept a callback wins; routing by availability). Our score already decides order, so pull beats push.
+- Owner: Jadon · 2026-10-11
+
 ## D6 · Ship without the texted code (supersedes the SMS part of D2 for now)
 - `REQUIRE_VERIFICATION=false` by default: no `send_code` / `check_code` tools, `save_profile` needs consent only, sensitive intents queue normally and the agent won't discuss details until the callback. Trust shown is recognized/new, never "verified".
 - Why: outbound SMS to US phones is blocked until 10DLC clears (3–5 business days). Code paths stay behind the flag; set it to `true` once registered.

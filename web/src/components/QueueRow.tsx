@@ -67,10 +67,12 @@ interface RowProps {
   selected: boolean;
   leaving: boolean;
   onSelect: (id: string) => void;
+  /** Your own callback (or nobody's); otherwise the pill names the teammate calling. */
+  mine?: boolean;
 }
 
 /** One caller in the master list: quiet rank, intent icon tinted by tier, name, subtitle, live time pill. */
-export function ListRow({ item, nowEst, flag, selected, leaving, onSelect }: RowProps) {
+export function ListRow({ item, nowEst, flag, selected, leaving, onSelect, mine = true }: RowProps) {
   const ref = useRef<HTMLLIElement>(null);
   useCollapseOut(ref, leaving, 280);
   const mounted = useRef(false);
@@ -122,7 +124,7 @@ export function ListRow({ item, nowEst, flag, selected, leaving, onSelect }: Row
           </span>
         </span>
         <span className={`time-pill tnum${inCall ? ' is-call' : ''}`}>
-          {inCall && <span className="time-pill-l">on call </span>}
+          {inCall && <span className="time-pill-l">{item.claimedBy && !mine ? `${item.claimedBy.name} · ` : 'on call '}</span>}
           <Digits text={clock(sinceMs)} />
         </span>
       </button>

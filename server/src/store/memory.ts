@@ -65,6 +65,13 @@ export function createMemoryStore(): Store {
     async addMember(member) {
       if (!members.some((m) => m.orgId === member.orgId && m.userId === member.userId)) members.push({ ...member });
     },
+    async listMembers(orgId) {
+      return members.filter((m) => m.orgId === orgId).map((m) => ({ ...m }));
+    },
+    async touchMember(orgId, userId, at, name) {
+      const m = members.find((x) => x.orgId === orgId && x.userId === userId);
+      if (m) Object.assign(m, { lastSeenAt: at, name });
+    },
 
     async getProfile(orgId, phone) {
       const p = profiles.get(key(orgId, phone));
@@ -99,6 +106,13 @@ export function createMemoryStore(): Store {
     async updateQueueItem(id, patch) {
       const cur = items.get(id);
       if (!cur) return undefined;
+      const next = { ...cur, ...clone(patch) };
+      items.set(id, next);
+      return clone(next);
+    },
+    async updateQueueItemIf(id, status, patch) {
+      const cur = items.get(id);
+      if (!cur || cur.status !== status) return undefined;
       const next = { ...cur, ...clone(patch) };
       items.set(id, next);
       return clone(next);

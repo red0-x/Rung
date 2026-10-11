@@ -60,12 +60,17 @@ export interface Org {
   createdAt: number;
 }
 
-export type Role = 'admin';
+/** admin: everything. rep: works the queue; can't finish or cancel another rep's callback. */
+export type Role = 'admin' | 'rep';
 
 export interface OrgMember {
   orgId: string;
   userId: string;
   role: Role;
+  /** Display name for teammates (from the email), refreshed on each heartbeat. */
+  name?: string;
+  /** Last dashboard poll: who is online right now. */
+  lastSeenAt?: number;
 }
 
 export interface TranscriptTurn {
@@ -122,6 +127,9 @@ export interface QueueItem {
   status: QueueStatus;
   createdAt: number;
   claimedAt?: number;
+  /** The rep who claimed the callback (user id) and their display name. Unset while queued. */
+  claimedBy?: string;
+  claimedByName?: string;
   doneAt?: number;
   callId?: string;
   transcript?: string;

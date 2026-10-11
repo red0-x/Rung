@@ -15,5 +15,6 @@ Rep view of the queue. Reads `GET /api/queue` ([[project/contracts#HTTP API (bac
 - [x] Redesign (ref: `attachments/dash-ref-*.png`), real logo, motion — 2026-10-11
 - [x] Deployed on Vercel (same origin) — 2026-10-11
 - [x] Queue redesign, Cancel/Reopen, Callers + History tables — 2026-10-11
+- [x] Multi-rep: Take next, "<rep> · on call" rows, teammate briefs view-only, reps-online pill — 2026-10-11
 
 ## Requests

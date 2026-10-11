@@ -69,6 +69,10 @@ function rowToVerification(r: Row): Verification {
   };
 }
 
+function rowToMember(r: Row): OrgMember {
+  return { orgId: r.org_id, userId: r.user_id, role: r.role, name: opt(r.name), lastSeenAt: ms(r.last_seen_at) };
+}
+
 function rowToItem(r: Row): QueueItem {
   return {
     id: r.id,
@@ -84,6 +88,8 @@ function rowToItem(r: Row): QueueItem {
     status: r.status,
     createdAt: ms(r.created_at)!,
     claimedAt: ms(r.claimed_at),
+    claimedBy: opt(r.claimed_by),
+    claimedByName: opt(r.claimed_by_name),
     doneAt: ms(r.done_at),
     callId: opt(r.call_id),
     transcript: opt(r.transcript),
@@ -112,6 +118,8 @@ function itemToRow(p: Partial<QueueItem>): Row {
   if (p.status !== undefined) row.status = p.status;
   if (p.createdAt !== undefined) row.created_at = iso(p.createdAt);
   if ('claimedAt' in p) row.claimed_at = iso(p.claimedAt);
+  if ('claimedBy' in p) row.claimed_by = p.claimedBy ?? null;
+  if ('claimedByName' in p) row.claimed_by_name = p.claimedByName ?? null;
   if ('doneAt' in p) row.done_at = iso(p.doneAt);
   if ('callId' in p) row.call_id = p.callId ?? null;
   if ('transcript' in p) row.transcript = p.transcript ?? null;
@@ -164,7 +172,13 @@ export function createSupabaseStore(sb: SupabaseClient): Store {
         await sb.from('org_members').select('*').eq('user_id', userId).order('created_at', { ascending: true }).limit(1),
       );
       const r = rows?.[0];
-      return r ? ({ orgId: r.org_id, userId: r.user_id, role: r.role } as OrgMember) : undefined;
+      return r ? rowToMember(r) : undefined;
+    },
+    async listMembers(orgId) {
+      return (must(await sb.from('org_members').select('*').eq('org_id', orgId)) ?? []).map(rowToMember);
+    },
+    async touchMember(orgId, userId, at, name) {
+      must(await sb.from('org_members').update({ last_seen_at: iso(at), name }).eq('org_id', orgId).eq('user_id', userId));
     },
     async addMember(m) {
       must(
@@ -237,6 +251,13 @@ export function createSupabaseStore(sb: SupabaseClient): Store {
     },
     async updateQueueItem(id, patch) {
       const r = must(await sb.from('queue_items').update(itemToRow(patch)).eq('id', id).select().maybeSingle());
+      return r ? rowToItem(r) : undefined;
+    },
+    async updateQueueItemIf(id, status, patch) {
+      // One conditional UPDATE: Postgres row locking makes this the tie-breaker when two reps click at once.
+      const r = must(
+        await sb.from('queue_items').update(itemToRow(patch)).eq('id', id).eq('status', status).select().maybeSingle(),
+      );
       return r ? rowToItem(r) : undefined;
     },
     async getQueueItem(id) {

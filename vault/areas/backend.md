@@ -20,6 +20,7 @@ One service: MCP server for Dial, webhook receiver, `/api/queue`. Owns [[project
 - [x] Dial webhook (call.ended, call.transcribed) → `/webhooks/dial`, signature verified in prod
 - [x] Dial Context MCP "Rung" → `/mcp` + `X-Mcp-Secret`: connected, 3 tools; prod lookup_caller greets Maria (bank) / Dana (clinic)
 - [ ] Hello call from a real phone
+- [x] Multi-rep: atomic claims, `POST /api/queue/next`, claimer/admin permissions, presence + reps-online ETA, `DEMO_BANK_REPS` seeding — 2026-10-11
 
 ## Public URL
 <!-- current base URL; update when it changes -->

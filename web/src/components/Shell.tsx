@@ -121,16 +121,18 @@ export function PageHeader({ title, sentence, right }: { title: ReactNode; sente
   );
 }
 
-export function ReadyPill({ offline }: { offline?: boolean }) {
+/** With a team online, shows who's here and how many are free; a solo rep sees the original pill. */
+export function ReadyPill({ offline, reps }: { offline?: boolean; reps?: { online: number; available: number } }) {
+  const team = reps && reps.online > 1;
   return (
-    <span className={`ready-pill${offline ? ' is-down' : ''}`} role="status">
+    <span className={`ready-pill${offline ? ' is-down' : ''}${team && reps.available === 0 ? ' is-full' : ''}`} role="status">
       <span className="rp-seg rp-queue">
         <IconPeople width={16} height={16} />
-        Priority queue
+        {team ? `${reps.online} reps online` : 'Priority queue'}
       </span>
       <span className="rp-seg">
         <i className="dot" aria-hidden="true" />
-        {offline ? 'Reconnecting' : 'Ready for callback'}
+        {offline ? 'Reconnecting' : !team ? 'Ready for callback' : reps.available ? `${reps.available} free for callback` : 'Everyone is on a call'}
       </span>
     </span>
   );

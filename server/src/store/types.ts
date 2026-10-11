@@ -20,6 +20,9 @@ export interface Store {
   // Members
   getMembership(userId: string): Promise<OrgMember | undefined>;
   addMember(member: OrgMember): Promise<void>;
+  listMembers(orgId: string): Promise<OrgMember[]>;
+  /** Heartbeat: mark a member as seen now (presence) and refresh their display name. */
+  touchMember(orgId: string, userId: string, at: number, name: string): Promise<void>;
 
   // Profiles
   getProfile(orgId: string, phone: string): Promise<Profile | undefined>;
@@ -34,6 +37,12 @@ export interface Store {
   /** Insert, or replace an item with the same id (seeding is idempotent). */
   addQueueItem(item: QueueItem): Promise<QueueItem>;
   updateQueueItem(id: string, patch: Partial<Omit<QueueItem, 'id' | 'orgId'>>): Promise<QueueItem | undefined>;
+  /** Compare-and-set: apply the patch only if the item is still in `status`. Undefined if it moved (someone else won). */
+  updateQueueItemIf(
+    id: string,
+    status: QueueStatus,
+    patch: Partial<Omit<QueueItem, 'id' | 'orgId'>>,
+  ): Promise<QueueItem | undefined>;
   getQueueItem(id: string): Promise<QueueItem | undefined>;
   /** Global: a Dial call id is unique across orgs. */
   findQueueItemByCallId(callId: string): Promise<QueueItem | undefined>;

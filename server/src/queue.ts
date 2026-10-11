@@ -19,6 +19,8 @@ export interface QueueItemView {
   status: QueueStatus;
   createdAt: number;
   claimedAt: number | null;
+  /** The rep holding the callback, null while queued. */
+  claimedBy: { id: string; name: string } | null;
   doneAt: number | null;
   waitedMin: number;
   score: { urgency: number; value: number; aging: number; total: number };
@@ -65,6 +67,7 @@ export function toView(s: Scored, rank: number | null, settings: OrgSettings): Q
     status: item.status,
     createdAt: item.createdAt,
     claimedAt: item.claimedAt ?? null,
+    claimedBy: item.claimedBy ? { id: item.claimedBy, name: item.claimedByName ?? 'Rep' } : null,
     doneAt: item.doneAt ?? null,
     waitedMin: score.waitedMin,
     score: { urgency: score.urgency, value: score.value, aging: score.aging, total: score.total },

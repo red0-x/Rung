@@ -2830,3 +2830,18 @@ code {
 .prow.is-open {
   z-index: 5;
 }
+
+/* Multi-rep: Take next, teammate's callback, everyone busy. */
+.take-next {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+.teammate-note {
+  margin: 0;
+}
+.ready-pill.is-full .dot {
+  background: #d97706;
+}
+.section-head h2 {
+  white-space: nowrap;
+}

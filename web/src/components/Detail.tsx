@@ -23,10 +23,13 @@ interface Props {
   onDone: (item: QueueItemView) => void;
   onRelease: (item: QueueItemView) => void;
   onClose: () => void;
+  /** Set when a teammate holds this callback: their name. Admins can still finish or cancel it. */
+  teammate?: string;
+  canManage?: boolean;
 }
 
 /** The selected caller's brief. Keyed by id so a selection change crossfades. */
-export function Detail({ item, nowEst, agingPerMin, agingCap, scaleMax, etaMin, phone, busy, onCallBack, onDone, onRelease, onClose }: Props) {
+export function Detail({ item, nowEst, agingPerMin, agingCap, scaleMax, etaMin, phone, busy, onCallBack, onDone, onRelease, onClose, teammate, canManage = true }: Props) {
   const [showTranscript, setShowTranscript] = useState(false);
   const requireVerification = useAuth().me?.platform.requireVerification ?? false;
   const inCall = item.status === 'in_progress';
@@ -49,7 +52,7 @@ export function Detail({ item, nowEst, agingPerMin, agingCap, scaleMax, etaMin, 
             {trust}
           </p>
         </div>
-        <span className="id-pill tnum">{inCall ? 'On a call' : `#${item.rank} · ${total} pts`}</span>
+        <span className="id-pill tnum">{inCall ? (teammate ? `${teammate} is calling` : 'On a call') : `#${item.rank} · ${total} pts`}</span>
       </div>
 
       <div className="chips">
@@ -93,7 +96,9 @@ export function Detail({ item, nowEst, agingPerMin, agingCap, scaleMax, etaMin, 
       )}
 
       <div className="detail-actions">
-        {inCall ? (
+        {inCall && teammate && !canManage ? (
+          <p className="muted teammate-note">{teammate} is calling them back.</p>
+        ) : inCall ? (
           <>
             {phone && (
               <a className="btn btn-primary btn-lg dial-link" href={phone.tel.startsWith('tel:') ? phone.tel : `tel:${phone.phone}`}>
