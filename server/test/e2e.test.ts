@@ -76,6 +76,12 @@ describe('MCP routing and security', () => {
       expect(r).toMatchObject({ isError: true, data: { error: 'org_unknown' } });
       await d.close();
 
+      // With the secret, an unclaimed (valid) number lists tools too; tool calls answer org_unknown.
+      const u = await openSimCall({ baseUrl: s.base, phone: MARIA, agentNumber: '+15550009999', secret: 'shh' });
+      expect(await u.tools()).toHaveLength(5);
+      expect((await u.call('lookup_caller')).data.error).toBe('org_unknown');
+      await u.close();
+
       // With the secret, the dialed number picks the org.
       await s.api('/org/number', { body: { numberId: 'mock_num_2' }, as: CLINIC_EMAIL });
       const c = await openSimCall({ baseUrl: s.base, phone: MARIA, agentNumber: '+15550000002', secret: 'shh' });

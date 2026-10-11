@@ -4,8 +4,12 @@ import { INTENTS, type OrgSettings } from './types.js';
 
 const DEFAULT_TEMPLATE = fileURLToPath(new URL('../../docs/inbound-prompt.md', import.meta.url));
 
+/** Inlined by scripts/vercel-build.mjs (esbuild define) so the serverless bundle needs no file. */
+declare const __RUNG_PROMPT_TEMPLATE__: string | undefined;
+
 /** Read on every render so edits to docs/inbound-prompt.md show up without a restart. */
 export function loadPromptTemplate(path?: string): string {
+  if (!path && typeof __RUNG_PROMPT_TEMPLATE__ === 'string') return __RUNG_PROMPT_TEMPLATE__;
   return readFileSync(path ?? DEFAULT_TEMPLATE, 'utf8');
 }
 

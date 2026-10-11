@@ -49,6 +49,11 @@ export function createApp(deps: AppDeps): Express {
   app.post('/webhooks/dial', express.raw({ type: () => true, limit: '1mb' }), async (req, res) => {
     const raw = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
 
+    if (!cfg.dialWebhookSecret && cfg.env === 'production') {
+      // Production never accepts unsigned events; the rest of the server runs without the secret.
+      res.status(503).json({ error: 'webhook_secret_missing' });
+      return;
+    }
     if (cfg.dialWebhookSecret) {
       const sig = verifyDialSignature(raw, req.header('x-dial-signature'), cfg.dialWebhookSecret, now());
       if (!sig.ok) {
@@ -73,11 +78,17 @@ export function createApp(deps: AppDeps): Express {
       return;
     }
 
-    // Answer inside Dial's 10s timeout; do the work (it may fetch the call record) afterwards.
-    res.status(200).json({ received: true });
-    handleDialEvent(evt, { store, dial, now, log }).catch((err) =>
+    const work = handleDialEvent(evt, { store, dial, now, log }).catch((err) =>
       log(`event ${evt.type} failed: ${(err as Error).message}`),
     );
+    if (cfg.inlineWebhooks) {
+      // Serverless: nothing runs after the response, so finish first (Dial allows 10 s; dedupe covers retries).
+      await work;
+      res.status(200).json({ received: true });
+    } else {
+      // Long-running server: answer inside Dial's 10 s timeout, then work (it may fetch the call record).
+      res.status(200).json({ received: true });
+    }
   });
 
   // ───────────────────────── MCP (Dial Context MCP) ─────────────────────────
@@ -86,7 +97,8 @@ export function createApp(deps: AppDeps): Express {
    *  - /mcp/<org.mcp_token>: that org (preferred; the token is the secret).
    *  - /mcp (or /mcp/<MCP_SHARED_SECRET>): org from X-Dial-Agent-Number. Needs MCP_SHARED_SECRET
    *    (URL, X-Mcp-Secret header or bearer) when set; without it, allowed in dev only.
-   *    A missing/unsubstituted agent number (tool discovery) yields org=null: tools answer org_unknown.
+   *    A missing/unsubstituted agent number (tool discovery), or with the secret an unclaimed number,
+   *    yields org=null: tools are listed and tool calls answer org_unknown.
    */
   const resolveMcpOrg = async (req: Request): Promise<{ ok: true; org: Org | null } | { ok: false }> => {
     const token = (req.params as Record<string, string | undefined>).token;
@@ -106,7 +118,10 @@ export function createApp(deps: AppDeps): Express {
     const agent = callerFromHeaders((h) => req.header(h)).agentNumber;
     if (!agent) return { ok: true, org: null };
     const org = await store.getOrgByDialNumber(agent);
-    return org ? { ok: true, org } : { ok: false };
+    if (org) return { ok: true, org };
+    // With the shared secret the caller is Dial itself: an unclaimed number lists tools, and tool calls
+    // answer org_unknown. Without a secret (dev only) an unknown number is refused.
+    return secret ? { ok: true, org: null } : { ok: false };
   };
 
   const mcpPaths = ['/mcp', '/mcp/:token'];
@@ -155,7 +170,14 @@ export function createApp(deps: AppDeps): Express {
   api.use(express.json({ limit: '256kb' }));
 
   api.get('/health', (_req, res) => {
-    res.json({ ok: true, store: store.kind, dial: dial.mock ? 'mock' : 'live', time: now() });
+    res.json({
+      ok: true,
+      store: store.kind,
+      dial: dial.mock ? 'mock' : 'live',
+      webhookVerify: !!cfg.dialWebhookSecret,
+      mcpAuth: !!cfg.mcpSharedSecret,
+      time: now(),
+    });
   });
 
   // Everything below needs a signed-in user.

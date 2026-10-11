@@ -8,6 +8,7 @@
     "start": "tsx --env-file-if-exists=../.env src/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "seed": "tsx --env-file-if-exists=../.env src/seed-cli.ts",
     "simulate": "tsx --env-file-if-exists=../.env ../scripts/simulate-call.ts",
     "demo:sim": "tsx --env-file-if-exists=../.env ../scripts/simulate-call.ts --demo"
   },

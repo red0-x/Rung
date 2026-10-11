@@ -39,12 +39,13 @@ describe('config', () => {
     expect(() => loadConfig({ DIAL_NUMBER_POOL: 'nope' })).toThrow();
   });
 
-  it('production refuses to boot without the webhook secret, and never enables dev auth', () => {
+  it('production refuses to boot without the MCP secret (not the webhook secret), and never enables dev auth', () => {
     const prod = loadConfig({ NODE_ENV: 'production', ENABLE_DEV: 'true', SUPABASE_URL: 'u', SUPABASE_SERVICE_ROLE_KEY: 'k' });
     expect(prod.enableDev).toBe(false);
-    expect(checkConfig(prod).fatal.join()).toContain('DIAL_WEBHOOK_SECRET');
+    expect(checkConfig(prod).fatal.join()).not.toContain('DIAL_WEBHOOK_SECRET');
+    expect(checkConfig(prod).warnings.join()).toContain('webhook_secret_missing');
     expect(checkConfig(prod).fatal.join()).toContain('MCP_SHARED_SECRET');
-    const ok = loadConfig({ NODE_ENV: 'production', DIAL_WEBHOOK_SECRET: 'w', MCP_SHARED_SECRET: 'm', SUPABASE_URL: 'u', SUPABASE_SERVICE_ROLE_KEY: 'k' });
+    const ok = loadConfig({ NODE_ENV: 'production', MCP_SHARED_SECRET: 'm', SUPABASE_URL: 'u', SUPABASE_SERVICE_ROLE_KEY: 'k' });
     expect(checkConfig(ok).fatal).toEqual([]);
     expect(checkConfig(loadConfig({ NODE_ENV: 'development' })).fatal).toEqual([]);
   });

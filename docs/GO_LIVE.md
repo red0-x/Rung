@@ -16,10 +16,12 @@ Known facts (from Dial docs and the coordinator's live check):
 
 ## 1. Public URL
 
-1. Deploy the server per `docs/DEPLOY.md` with `NODE_ENV=production`, `PUBLIC_URL=https://<server>`, `DIAL_API_KEY`,
-   `DIAL_NUMBER_POOL`, `MCP_SHARED_SECRET` (generate: `openssl rand -hex 24`), and a placeholder
-   `DIAL_WEBHOOK_SECRET` (replace in step 3).
-2. Confirm: `curl https://<server>/api/health` returns `"store":"supabase","dial":"live"`.
+Everything (dashboard + API + MCP + webhooks) is one Vercel project: **https://rung-liart.vercel.app**
+(see `docs/DEPLOY.md`). Env vars are already set on the project, including `MCP_SHARED_SECRET` (also in local `.env`).
+
+1. Promote / deploy to production (a push of `main` to the Git-connected repo deploys production).
+2. Confirm: `curl https://rung-liart.vercel.app/api/health` returns `"store":"supabase","dial":"live","mcpAuth":true`.
+   `webhookVerify` stays `false` until step 3.
 3. Post the URL in `vault/areas/backend.md`.
 
 ## 2. Verify the API base (harmless GET)
@@ -31,26 +33,30 @@ Expect `200`. If not, try `https://api.getdial.ai/v1/numbers` and set `DIAL_API_
 
 ## 3. Register the webhook
 
-Dashboard: getdial.ai/dashboard/webhooks, then **Add endpoint**:
-- URL `https://<server>/webhooks/dial`
-- Events: `call.ended`, `call.transcribed`
-- Save, copy the signing secret (`whsec_...`), set it as `DIAL_WEBHOOK_SECRET` on the server, redeploy.
+Until this step `/webhooks/dial` answers `503 webhook_secret_missing` in production (nothing unsigned is accepted).
 
-(API alternative: `POST /webhooks {"targetUrl":"https://<server>/webhooks/dial","eventTypes":["call.ended","call.transcribed"]}`.)
-Confirm: use **Send test event** if offered; the server log shows the event, and an unsigned `curl -X POST https://<server>/webhooks/dial -d '{}'` returns 401.
+Dashboard: getdial.ai/dashboard/webhooks, then **Add endpoint**:
+- URL `https://rung-liart.vercel.app/webhooks/dial`
+- Events: `call.ended`, `call.transcribed`
+- Save, copy the signing secret (`whsec_...`), then
+  `printf '%s' "$SECRET" | npx vercel env add DIAL_WEBHOOK_SECRET production --sensitive --scope jadon-lis-projects`
+  (and `preview`), and redeploy. `/api/health` now shows `"webhookVerify":true`.
+
+(API alternative: `POST /webhooks {"targetUrl":"https://rung-liart.vercel.app/webhooks/dial","eventTypes":["call.ended","call.transcribed"]}`.)
+Confirm: use **Send test event** if offered; the server log shows the event, and an unsigned `curl -X POST https://rung-liart.vercel.app/webhooks/dial -d '{}'` returns 401.
 
 ## 4. Register the Context MCP (one per account)
 
 Dashboard: getdial.ai/dashboard/context-mcps, then **Add**:
 - Name `rung`
-- URL `https://<server>/mcp`
+- URL `https://rung-liart.vercel.app/mcp`
 - Static header: `X-Mcp-Secret` = the `MCP_SHARED_SECRET` value
 - Save. Dial runs tool discovery: the server log shows `mcp [no-org] tools/list` and the five tools appear
   (`lookup_caller`, `save_profile`, `triage_call`; plus `send_code`, `check_code` when `REQUIRE_VERIFICATION=true`). During discovery the agent-number header
   is missing or a template, so the server answers with no org; that is expected.
 
-(API alternative: `POST https://api.getdial.ai/v1/context-mcps {"name":"rung","url":"https://<server>/mcp", ...headers}`.)
-If the dashboard has no static-header field, register `https://<server>/mcp/<MCP_SHARED_SECRET>` instead (the URL
+(API alternative: `POST https://api.getdial.ai/v1/context-mcps {"name":"rung","url":"https://rung-liart.vercel.app/mcp", ...headers}`.)
+If the dashboard has no static-header field, register `https://rung-liart.vercel.app/mcp/<MCP_SHARED_SECRET>` instead (the URL
 token is accepted as the secret, org still comes from the agent number).
 
 ## 5. Claim the real number and publish
@@ -78,7 +84,7 @@ call), then make the three calls: $12 dispute (new caller), fraud in progress $4
 ## 7. Turning texted-code verification back on (after 10DLC)
 
 1. Get 10DLC registration done in Dial (or test with a caller whose phone is a Dial number).
-2. Set `REQUIRE_VERIFICATION=true` on the server (Render env) and redeploy. `send_code`/`check_code` reappear in
+2. Set `REQUIRE_VERIFICATION=true` on the Vercel project (Production env) and redeploy. `send_code`/`check_code` reappear in
    tools/list; sensitive intents need a code from the last 10 minutes; `save_profile` needs a code.
 3. Re-run Dial's tool discovery for the Context MCP (re-save it) so the agent sees the two new tools.
 4. In Setup, click **Publish to Dial** again: the prompt now includes the code steps.

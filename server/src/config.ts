@@ -17,6 +17,8 @@ export interface Config {
   /** True when DIAL_API_KEY is blank (or DIAL_MOCK=true): SMS, number patches and call fetches are recorded, not sent. */
   dialMock: boolean;
   dialWebhookSecret?: string;
+  /** On Vercel: process webhook events before answering 200 (no work may run after the response). */
+  inlineWebhooks: boolean;
   /** Pre-provisioned Dial numbers the setup wizard can claim. */
   numberPool: PoolNumber[];
   /** Optional shared secret for the plain `/mcp` (agent-number fallback) route. Per-org URL tokens don't need it. */
@@ -101,6 +103,7 @@ export function loadConfig(env: Env = process.env): Config {
     dialApiBase: (str(env.DIAL_API_BASE) ?? 'https://api.getdial.ai/api/v1').replace(/\/+$/, ''),
     dialMock,
     dialWebhookSecret: str(env.DIAL_WEBHOOK_SECRET),
+    inlineWebhooks: bool(env.INLINE_WEBHOOKS, !!str(env.VERCEL)),
     numberPool: parseNumberPool(env.DIAL_NUMBER_POOL),
     mcpSharedSecret: str(env.MCP_SHARED_SECRET),
     requireInbound: bool(env.REQUIRE_INBOUND, true),
@@ -124,7 +127,11 @@ export function checkConfig(cfg: Config): { fatal: string[]; warnings: string[] 
   const prod = cfg.env === 'production';
 
   if (!cfg.dialWebhookSecret) {
-    (prod ? fatal : warnings).push('DIAL_WEBHOOK_SECRET is not set: webhook signatures are not being verified.');
+    warnings.push(
+      prod
+        ? 'DIAL_WEBHOOK_SECRET is not set: /webhooks/dial answers 503 webhook_secret_missing until it is.'
+        : 'DIAL_WEBHOOK_SECRET is not set: webhook signatures are not being verified (dev only).',
+    );
   }
   // Dial attaches ONE Context MCP to the whole account: <PUBLIC_URL>/mcp with a static X-Mcp-Secret header,
   // org resolved from X-Dial-Agent-Number. Per-org /mcp/<mcp_token> URLs keep working too.
