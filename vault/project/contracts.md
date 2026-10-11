@@ -20,8 +20,11 @@ No tool takes a phone number. Caller = `X-Dial-User-Number` (E.164; missing or `
 | `lookup_caller` | — | `{known, name, first_name, name_source, last_issue, recent_issues[≤3], call_count, previous_calls, has_open_request, open_request:{summary,status,position,estimated_callback_minutes}\|null, org_name, guidance}` |
 | `send_code` (only if `REQUIRE_VERIFICATION`) | — | `{sent, expires_in_minutes:5, guidance}` · errors `rate_limited`, `sms_failed` |
 | `check_code` (only if `REQUIRE_VERIFICATION`) | `code` | `{verified, attempts_left?, reason?, guidance}` |
-| `save_profile` | `name`, `consent` | `{saved, name, guidance}` · errors `consent_required`, `verification_required` |
-| `triage_call` | `intent`, `amount_usd?`, `summary`, `caller_name?` | `{queued, position, estimated_callback_minutes, priority, say_to_caller, guidance}` · `verification_required` for sensitive intents without a code check in the last 10 min |
+| `save_profile` | `name`, `consent`, `facts?` | `{saved, name, facts_saved, guidance}` · errors `consent_required`, `verification_required` |
+| `update_profile` | `occupation?`, `employer?`, `household?`, `location?`, `language?`, `preferences?`, `note?` | `{saved, remembered, guidance}` · errors `no_profile`, `nothing_to_save` |
+| `triage_call` | `intent`, `amount_usd?`, `summary`, `caller_name?` | `{queued, position, estimated_callback_minutes, estimated_callback_at, confirmation_text_sent, priority, say_to_caller, guidance}` · also sends the ETA text once · `verification_required` for sensitive intents without a code check in the last 10 min |
+
+`lookup_caller` also returns `facts` (saved callers) and `missing_facts`. DB adds `profiles.facts jsonb, facts_updated_at` and `queue_items.eta_minutes, eta_at, sms_status, sms_sent_at, sms_error` (migration `20261011210000`). Org setting `timezone` (IANA) drives the clock time in texts. See [[log/2026-10-11-2105-red-eta-sms-and-caller-facts]].
 
 All tools may return `org_unknown`, `caller_unknown`, `not_allowed` (non-inbound).
 Intents: `fraud_in_progress, medical_emergency, locked_out, payment_issue, money_movement, account_change, dispute, account_opening, general_question, other`. Sensitive by default: `money_movement`, `account_change`.

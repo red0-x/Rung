@@ -50,6 +50,8 @@ function rowToProfile(r: Row): Profile {
     name: r.name,
     consentAt: ms(r.consent_at)!,
     verifiedAt: ms(r.verified_at),
+    facts: r.facts && typeof r.facts === 'object' && Object.keys(r.facts).length ? r.facts : undefined,
+    factsUpdatedAt: ms(r.facts_updated_at),
     createdAt: ms(r.created_at)!,
   };
 }
@@ -87,6 +89,11 @@ function rowToItem(r: Row): QueueItem {
     transcript: opt(r.transcript),
     transcriptTurns: opt(r.transcript_turns),
     durationSeconds: opt(r.duration_seconds),
+    etaMinutes: opt(r.eta_minutes),
+    etaAt: ms(r.eta_at),
+    smsStatus: opt(r.sms_status),
+    smsSentAt: ms(r.sms_sent_at),
+    smsError: opt(r.sms_error),
   };
 }
 
@@ -110,6 +117,11 @@ function itemToRow(p: Partial<QueueItem>): Row {
   if ('transcript' in p) row.transcript = p.transcript ?? null;
   if ('transcriptTurns' in p) row.transcript_turns = p.transcriptTurns ?? null;
   if ('durationSeconds' in p) row.duration_seconds = p.durationSeconds ?? null;
+  if ('etaMinutes' in p) row.eta_minutes = p.etaMinutes ?? null;
+  if ('etaAt' in p) row.eta_at = iso(p.etaAt);
+  if ('smsStatus' in p) row.sms_status = p.smsStatus ?? null;
+  if ('smsSentAt' in p) row.sms_sent_at = iso(p.smsSentAt);
+  if ('smsError' in p) row.sms_error = p.smsError ?? null;
   return row;
 }
 
@@ -170,20 +182,23 @@ export function createSupabaseStore(sb: SupabaseClient): Store {
       const existing = must(
         await sb.from('profiles').select('created_at').eq('org_id', p.orgId).eq('phone', p.phone).maybeSingle(),
       );
+      // Columns left out of the payload keep their stored value, so re-saving never wipes facts.
+      const row: Row = {
+        org_id: p.orgId,
+        phone: p.phone,
+        name: p.name,
+        consent_at: iso(p.consentAt),
+        verified_at: iso(p.verifiedAt),
+        created_at: existing?.created_at ?? iso(p.createdAt),
+      };
+      if (p.facts) {
+        row.facts = p.facts;
+        row.facts_updated_at = iso(p.factsUpdatedAt ?? Date.now());
+      }
       const r = must(
         await sb
           .from('profiles')
-          .upsert(
-            {
-              org_id: p.orgId,
-              phone: p.phone,
-              name: p.name,
-              consent_at: iso(p.consentAt),
-              verified_at: iso(p.verifiedAt),
-              created_at: existing?.created_at ?? iso(p.createdAt),
-            },
-            { onConflict: 'org_id,phone' },
-          )
+          .upsert(row, { onConflict: 'org_id,phone' })
           .select()
           .single(),
       );

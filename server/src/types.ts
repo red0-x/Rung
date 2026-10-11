@@ -36,6 +36,8 @@ export interface ValueTier {
 export interface OrgSettings {
   greeting: string;
   tone: string;
+  /** IANA zone used for clock times in texts, e.g. "America/Los_Angeles". */
+  timezone: string;
   intents: Record<Intent, IntentRule>;
   valueTiers: ValueTier[];
   agingPerMin: number;
@@ -73,6 +75,12 @@ export interface TranscriptTurn {
   endMs?: number;
 }
 
+export const FACT_KEYS = ['occupation', 'employer', 'household', 'location', 'language', 'preferences'] as const;
+export type FactKey = (typeof FACT_KEYS)[number];
+
+/** What a saved caller has told us over time. Merged across calls, never replaced wholesale. */
+export type Facts = Partial<Record<FactKey, string>> & { notes?: Array<{ text: string; at: number }> };
+
 export interface Profile {
   orgId: string;
   phone: string;
@@ -80,6 +88,9 @@ export interface Profile {
   consentAt: number;
   /** When the caller last proved the number by texted code; unset if saved with consent only. */
   verifiedAt?: number;
+  /** Durable context: occupation, household, preferences, notes. Absent on older rows. */
+  facts?: Facts;
+  factsUpdatedAt?: number;
   createdAt: number;
 }
 
@@ -116,4 +127,11 @@ export interface QueueItem {
   transcript?: string;
   transcriptTurns?: TranscriptTurn[];
   durationSeconds?: number;
+  /** The callback estimate promised on the call (minutes) and the clock time it maps to. */
+  etaMinutes?: number;
+  etaAt?: number;
+  /** Confirmation text: sent, failed (Dial refused it, e.g. no 10DLC), or skipped. */
+  smsStatus?: 'sent' | 'failed' | 'skipped';
+  smsSentAt?: number;
+  smsError?: string;
 }

@@ -72,7 +72,8 @@ export function createMemoryStore(): Store {
     },
     async upsertProfile(p) {
       const prev = profiles.get(key(p.orgId, p.phone));
-      const next = { ...p, createdAt: prev?.createdAt ?? p.createdAt };
+      // Re-saving a profile (new name, new consent) must never wipe the facts collected so far.
+      const next = { ...p, createdAt: prev?.createdAt ?? p.createdAt, facts: p.facts ?? prev?.facts, factsUpdatedAt: p.factsUpdatedAt ?? prev?.factsUpdatedAt };
       profiles.set(key(p.orgId, p.phone), next);
       return clone(next);
     },

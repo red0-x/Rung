@@ -8,8 +8,12 @@ import { maskPhone, type CallerCtx } from './identity.js';
 import { RateLimitError, type OtpService } from './otp.js';
 import { rankQueued } from './queue.js';
 import { estimateCallbackMinutes, scoreItem } from './scoring.js';
+import { describeFacts, factsInput, hasFacts, mergeFacts, missingFacts } from './facts.js';
+import { clockTime, confirmationSms, smsText } from './sms.js';
 import type { Store } from './store/types.js';
 import { INTENTS, type Org, type QueueItem, type Trust } from './types.js';
+
+export { smsText };
 
 export interface Deps {
   store: Store;
@@ -33,16 +37,6 @@ const fail = (error: string, message: string): CallToolResult => ({
   isError: true,
   content: [{ type: 'text', text: JSON.stringify({ error, message }) }],
 });
-
-/** Plain ASCII only: non-GSM characters (em dashes, curly quotes, accents) cut carrier length limits. */
-export function smsText(s: string): string {
-  return s
-    .normalize('NFKD')
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[\u201C\u201D]/g, '"')
-    .replace(/[\u2013\u2014]/g, '-')
-    .replace(/[^\x20-\x7E]/g, '');
-}
 
 /** Collapse whitespace; title-case only when the name came in all lower or all upper case. */
 export function normalizeName(raw: string | undefined | null): string | undefined {
@@ -143,7 +137,16 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
           : ' Ask what you can help with.';
       let guidance: string;
       if (profile) {
-        guidance = `Returning caller. Say "Welcome back, ${firstName}."${openLine}`;
+        const known = describeFacts(profile.facts);
+        const gaps = missingFacts(profile.facts);
+        guidance =
+          `Returning caller. Say "Welcome back, ${firstName}."${openLine}` +
+          (known
+            ? ` What you already know about them (use it naturally, never recite it, never ask for it again): ${known}.`
+            : '') +
+          (gaps.length
+            ? ` You do not yet know their ${gaps.join(' or ')}. After triage_call, if the moment is natural, ask once and save the answer with update_profile. If they decline, drop it.`
+            : '');
       } else if (history.total > 0) {
         guidance =
           `You've spoken before (${history.total} ${history.total === 1 ? 'call' : 'calls'}) but they haven't saved their name. ` +
@@ -173,6 +176,8 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
         })),
         call_count: history.total,
         previous_calls: profile ? null : history.total,
+        facts: profile && hasFacts(profile.facts) ? profile.facts : null,
+        missing_facts: profile ? missingFacts(profile.facts) : null,
         has_open_request: !!openItem,
         open_request: openRequest,
         org_name: o.name,
@@ -274,9 +279,10 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       inputSchema: {
         name: z.string().min(1).max(80).describe("The caller's full name as they said it."),
         consent: z.boolean().describe('True only if the caller explicitly agreed to save their details.'),
+        facts: factsInput.optional().describe('Anything else they already told you this call: occupation, household, and so on. Only what they actually said.'),
       },
     },
-    async ({ name, consent }) => {
+    async ({ name, consent, facts }) => {
       const id = identify();
       if ('err' in id) return id.err;
       const { org: o, phone } = id;
@@ -294,13 +300,46 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
         consentAt: t,
         // Only a texted code proves the number; consent alone never claims verified.
         verifiedAt: cfg.requireVerification ? t : undefined,
+        ...(facts ? { facts: mergeFacts(undefined, facts, t), factsUpdatedAt: t } : {}),
         createdAt: t,
       });
       // Backfill the request this caller just made, if it was queued without a name.
       const open = await store.latestQueueItemForPhone(o.id, phone, ['queued', 'in_progress']);
       if (open && !open.name) await store.updateQueueItem(open.id, { name: clean });
       log(`save_profile ${tag(o, phone)}`);
-      return ok({ saved: true, name: profile.name, guidance: 'Tell the caller their details are saved for next time.' });
+      return ok({
+        saved: true,
+        name: profile.name,
+        facts_saved: hasFacts(profile.facts),
+        guidance: 'Tell the caller their details are saved for next time.',
+      });
+    },
+  );
+
+  server.registerTool(
+    'update_profile',
+    {
+      title: 'Remember more about the caller',
+      description:
+        'Adds what the caller just told you (occupation, household, location, preferences, one-off notes) to their saved profile, so every future call starts with it. ' +
+        'Only works for callers who already agreed to be remembered. Send only what they actually said, in their words. Never store account numbers, passwords, health or other sensitive details. ' +
+        'New values replace old ones for the same field; notes are added.',
+      inputSchema: factsInput.shape,
+    },
+    async (input) => {
+      const id = identify();
+      if ('err' in id) return id.err;
+      const { org: o, phone } = id;
+      const profile = await store.getProfile(o.id, phone);
+      if (!profile) {
+        return fail('no_profile', 'This caller has not agreed to be remembered yet. Ask first, then call save_profile with consent.');
+      }
+      const t = now();
+      if (!hasFacts(mergeFacts(undefined, input, t))) return fail('nothing_to_save', 'Send at least one thing the caller actually told you.');
+      const facts = mergeFacts(profile.facts, input, t);
+      await store.upsertProfile({ ...profile, facts, factsUpdatedAt: t });
+      log(`update_profile ${tag(o, phone)} fields=${Object.keys(input).filter((k) => (input as Record<string, unknown>)[k]).join(',')}`);
+      return ok({ saved: true, remembered: describeFacts(facts), guidance: 'Briefly acknowledge ("Got it, thanks.") and move on. Do not read their details back.' });
     },
   );
 
@@ -375,18 +414,65 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
 
       const ranked = rankQueued(await store.listQueueItems(o.id, { statuses: ['queued'] }), t, s);
       const position = Math.max(1, ranked.findIndex((r) => r.item.id === item.id) + 1);
-      const eta = estimateCallbackMinutes(position, s.avgHandleMin, s.repsOnShift);
+      // Once the confirmation text is out, that time is the promise: a repeat triage_call (name backfill) must not change it.
+      const texted0 = item.smsStatus === 'sent' && item.etaMinutes !== undefined && item.etaAt !== undefined;
+      const eta = texted0 ? item.etaMinutes! : estimateCallbackMinutes(position, s.avgHandleMin, s.repsOnShift);
+      const etaAt = texted0 ? item.etaAt! : t + eta * 60_000;
       const score = scoreItem(item, t, s);
       log(`triage_call ${tag(o, phone)} ${intent} -> #${position} (${score.total} pts)`);
+
+      // The request is saved. Record the exact promise (minutes + clock time), then text it once.
+      // Nothing here may fail the call: the caller is told the ETA out loud either way, and the
+      // bookkeeping columns come from a migration that may not be applied yet.
+      const track = async (patch: Partial<QueueItem>) => {
+        try {
+          item = (await store.updateQueueItem(item.id, patch)) ?? item;
+        } catch (err) {
+          log(`triage_call ${tag(o, phone)} could not record eta/sms state: ${(err as Error).message}`);
+        }
+      };
+      let texted = texted0;
+      if (!texted0) {
+        await track({ etaMinutes: eta, etaAt });
+        if (!o.dialNumber) {
+          await track({ smsStatus: 'skipped', smsError: 'org has no Dial number to text from' });
+        } else {
+          try {
+            await dial.sendSms(
+              phone,
+              confirmationSms({
+                orgName: o.name,
+                firstName: item.name?.trim().split(/\s+/)[0],
+                etaMinutes: eta,
+                etaAt,
+                position,
+                timeZone: s.timezone,
+              }),
+              o.dialNumber,
+              { orgId: o.id },
+            );
+            texted = true;
+            await track({ smsStatus: 'sent', smsSentAt: now(), smsError: undefined });
+          } catch (err) {
+            log(`triage_call ${tag(o, phone)} confirmation sms failed: ${(err as Error).message}`);
+            await track({ smsStatus: 'failed', smsError: (err as Error).message.slice(0, 300) });
+          }
+        }
+      }
 
       const nameMissing = !item.name;
       return ok({
         queued: true,
         position,
         estimated_callback_minutes: eta,
+        estimated_callback_at: clockTime(etaAt, s.timezone),
+        confirmation_text_sent: texted,
         priority: score.reason,
         name_missing: nameMissing,
-        say_to_caller: `A specialist from ${o.name} already has your details and will call you back on this number in about ${eta} minutes. No need to hold.`,
+        say_to_caller:
+          `A specialist from ${o.name} already has your details and will call you back on this number in about ${eta} minutes, around ${clockTime(etaAt, s.timezone)}. ` +
+          (texted ? 'I just texted you a confirmation with the same time. ' : '') +
+          'No need to hold.',
         guidance: nameMissing
           ? 'Before you end the call, ask for their first and last name (confirm the spelling if it is long or unusual), then call triage_call again with caller_name: it updates this same request. If they refuse, skip it. Then tell the caller the callback estimate, thank them, and end the call.'
           : 'Tell the caller the callback estimate, thank them, and end the call. Do not make promises beyond that.',

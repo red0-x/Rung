@@ -14,7 +14,7 @@ const as = (phone: string) => openSimCall({ baseUrl: h.base, phone, orgToken: h.
 describe('verification off', () => {
   it('does not list send_code or check_code', async () => {
     const call = await as(NEW_CALLER);
-    expect((await call.tools()).sort()).toEqual(['lookup_caller', 'save_profile', 'triage_call']);
+    expect((await call.tools()).sort()).toEqual(['lookup_caller', 'save_profile', 'triage_call', 'update_profile']);
     const r = await call.call('send_code').catch((e: Error) => ({ isError: true, data: e.message }));
     expect(r.isError).toBe(true);
     await call.close();
