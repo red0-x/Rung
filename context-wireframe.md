@@ -27,6 +27,14 @@ Status: 2026-10-11 22:10 UTC (Conrad's agent). `/wireframe` call story is now bu
 - Lower `/wireframe` queue section now leads with Maria Reyes for one consistent narrative. Every scene shows "Demo data. Names, amounts and timings are illustrative."
 - Verified: `npm run build` passes; Playwright at 1440x900 and 390x844 across beats, no horizontal overflow; reduced motion snaps each scene to its final state. On phones the steps list shows only the current step, phone sits beside the brief, transcript below.
 
+## Pass 2 (2026-10-11 22:45 UTC, Conrad's feedback)
+
+- Conrad's rules: no step lists, no "01 · ..." kickers, no "Demo data" lines, no accent-bar callouts, minimal text everywhere.
+- Story now uses sticky visual + one short headline that crossfades per stage (`Lines` in `CallStory.tsx`).
+- Rep scene: "Open with" block, meta text and window title bar removed; phone sits beside the window (not over it), slim frame; iOS status bar uses real signal / Wi-Fi / battery glyphs.
+- Hero centerpiece is a text-free copy of the real dashboard layout (ink sidebar, 4 tiles with cobalt first, ranked list, tinted brief). Verification and Language tiles moved off the title/subtitle.
+- Header is a floating pill (fixed, centered, blurred white). "Made with" monochrome marquee at the bottom: Dial, Supabase, Vercel, Keewano, Claude, React, TypeScript, MCP (text wordmarks, no logos).
+
 ## Visual checks (earlier pass)
 
 - Built with `cd web && npm run build` on 2026-10-11: passes, one existing >500kB chunk warning.
