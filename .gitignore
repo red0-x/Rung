@@ -22,3 +22,5 @@ dist/
 server/seed.json
 .vercel
 .gstack/
+.env*
+!.env.example
