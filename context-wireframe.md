@@ -49,6 +49,11 @@ Status: 2026-10-11 22:10 UTC (Conrad's agent). `/wireframe` call story is now bu
 - For humans / For agents moved out of the nav into a bottom-center glass dock that hides on scroll down and returns on scroll up.
 - Pricing section heading is now "Contact". iMessage icon on the SMS banner; Dial and Keewano marks (team-supplied images, `web/public/brand/`) as single-color masks in the Made with strip.
 
+## Pass 5 (2026-10-11 23:10 UTC)
+
+- Hero headline: "Never," then a second line that dissolves (blur + fade) between "on hold" and "a stranger" every 2.6s (`Rotator` in Wireframe.tsx). Static under reduced motion.
+- "See a call happen" now glides through the whole call story (`playTour`, ~0.9px/ms, 9 to 26s) so every scene transition plays; any wheel/touch/key/click stops it.
+
 ## Visual checks (earlier pass)
 
 - Built with `cd web && npm run build` on 2026-10-11: passes, one existing >500kB chunk warning.

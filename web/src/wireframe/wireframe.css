@@ -95,6 +95,9 @@
 }
 .wf-hero-copy .wf-display { font-size: clamp(40px, min(8vw, 14vh), 132px); }
 .wf-line { display: block; overflow: hidden; padding: 0.04em 0 0.14em; margin: -0.04em 0 -0.14em; }
+.wf-rot { display: inline-grid; justify-items: center; }
+.wf-rot-word { grid-area: 1 / 1; white-space: nowrap; opacity: 0; filter: blur(14px); transform: translateY(0.12em) scale(0.98); transition: opacity 700ms var(--ease), filter 800ms var(--ease), transform 800ms var(--ease); }
+.wf-rot-word[data-on] { opacity: 1; filter: blur(0); transform: none; }
 .wf-line > span { display: inline-block; animation: wf-rise 700ms var(--ease) both; animation-delay: calc(var(--i) * 90ms + 80ms); }
 .wf-sub { max-width: 640px; margin: 3vh auto 0; font-size: clamp(15px, 1.3vw, 20px); line-height: 1.5; color: var(--ink-60); opacity: 0; animation: wf-fade 0.8s 0.45s var(--ease) forwards; text-wrap: pretty; }
 .wf-cta-row { display: flex; gap: 14px; justify-content: center; margin-top: 3.4vh; opacity: 0; animation: wf-fade 0.8s 0.6s var(--ease) forwards; }

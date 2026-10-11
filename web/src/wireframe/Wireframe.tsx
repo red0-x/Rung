@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { Tile, Cube } from './Tile';
 import { Logo } from '../brand/Logo';
 import { useScenes } from './useScenes';
@@ -104,9 +104,9 @@ function HumanPage() {
         <section className="wf-hero" data-scene="pin" data-rest="0">
           <div className="wf-hero-stick">
             <div className="wf-hero-copy">
-              <h1 className="wf-display">
-                <span className="wf-line"><span style={{ '--i': 0 } as CSSProperties}>Calls,</span></span>
-                <span className="wf-line"><span style={{ '--i': 1 } as CSSProperties}>fully answered</span></span>
+              <h1 className="wf-display" aria-label="Never on hold. Never a stranger.">
+                <span className="wf-line" aria-hidden="true"><span style={{ '--i': 0 } as CSSProperties}>Never,</span></span>
+                <span className="wf-line" aria-hidden="true"><span style={{ '--i': 1 } as CSSProperties}><Rotator words={['on hold', 'a stranger']} /></span></span>
               </h1>
               <p className="wf-sub">
                 Rung picks up your support line, verifies callers, and hands your team a ranked callback queue with a
@@ -116,7 +116,7 @@ function HumanPage() {
                 <a className="wf-btn wf-btn-ink wf-btn-xl" href="/login?signup">
                   <span className="wf-btn-mark"><Logo variant="mark" size={22} title="" /></span> Explore the platform
                 </a>
-                <a className="wf-btn wf-btn-ghost wf-btn-xl" href="#story">See a call happen</a>
+                <a className="wf-btn wf-btn-ghost wf-btn-xl" href="#story" onClick={playTour}>See a call happen</a>
               </div>
             </div>
 
@@ -319,4 +319,51 @@ function CopyButton({ text }: { text: string }) {
       {done ? 'Copied' : 'Copy email'}
     </button>
   );
+}
+
+/** Second hero line: phrases swap in place with a dissolve (blur + fade). Static under reduced motion. */
+function Rotator({ words, every = 2600 }: { words: string[]; every?: number }) {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const t = window.setInterval(() => setI((n) => (n + 1) % words.length), every);
+    return () => window.clearInterval(t);
+  }, [words.length, every]);
+  return (
+    <span className="wf-rot">
+      {words.map((w, k) => (
+        <span key={w} className="wf-rot-word" data-on={k === i || undefined}>{w}</span>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * "See a call happen": instead of jumping, glide from here to the end of the call story so every scroll-scrubbed
+ * transition plays. Any wheel, touch, key or click hands control back to the visitor.
+ */
+function playTour(e: MouseEvent<HTMLAnchorElement>) {
+  const end = document.querySelector<HTMLElement>('.cs-s3');
+  if (!end || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  e.preventDefault();
+  const from = window.scrollY;
+  const to = end.offsetTop + end.offsetHeight - window.innerHeight;
+  const dist = to - from;
+  if (dist <= 0) return;
+  const duration = Math.min(26000, Math.max(9000, dist / 0.9)); // ~0.9px per ms through the story
+  const start = performance.now();
+  const ease = (t: number) => (t < 0.06 ? (t / 0.06) ** 2 * 0.03 : t > 0.94 ? 1 - ((1 - t) / 0.06) ** 2 * 0.03 : 0.03 + (t - 0.06) / 0.88 * 0.94);
+  let raf = 0;
+  const stop = () => {
+    cancelAnimationFrame(raf);
+    for (const ev of ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const) window.removeEventListener(ev, stop);
+  };
+  for (const ev of ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const) window.addEventListener(ev, stop, { passive: true });
+  const step = (now: number) => {
+    const t = Math.min(1, (now - start) / duration);
+    window.scrollTo(0, from + dist * ease(t));
+    if (t < 1) raf = requestAnimationFrame(step);
+    else stop();
+  };
+  raf = requestAnimationFrame(step);
 }
