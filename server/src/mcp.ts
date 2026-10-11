@@ -150,8 +150,15 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       if (profile) {
         const known = describeFacts(profile.facts);
         const gaps = missingFacts(profile.facts);
+        // Recognized: greet by name, show we have their details, ask one open question. Past issues are
+        // reference only, so the caller is not quizzed about last time.
+        const profileLine = openRequest
+          ? openLine
+          : lastIssue
+            ? ` Do not bring up their past issues unless they do. For your reference only, their last one was ${lastIssue}.`
+            : '';
         guidance =
-          `Returning caller. Say "Welcome back, ${firstName}."${openLine}` +
+          `Returning caller. Say "Hi ${firstName}, I've got your details up. What can I help you with today?"${profileLine}` +
           (known
             ? ` What you already know about them (use it naturally, never recite it, never ask for it again): ${known}.`
             : '') +
@@ -374,7 +381,10 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
           .min(5)
           .max(600)
           .describe(
-            'A 2-3 sentence brief for the specialist, third person, facts only: what happened, when, how much, what the caller wants. They will read this before calling back.',
+            'The rep reads this in 5 seconds. Third person, facts only, exactly this shape: ' +
+              'sentence 1 = headline (who, what, how much, under 20 words). ' +
+              'Then "When: ...". "Tried: ..." (what the caller already did, or "nothing"). "Wants: ..." (the outcome they asked for). ' +
+              'Add "Best time: ..." only if they named a callback time. Leave out a line you do not know. No filler, no guesses.',
           ),
         caller_name: z
           .string()

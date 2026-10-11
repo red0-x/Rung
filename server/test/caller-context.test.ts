@@ -75,7 +75,14 @@ describe('lookup_caller: unsaved callers with history (gaps 2 and 3)', () => {
     await triage(JAMES, { intent: 'other', summary: 'Asked about hours.', caller_name: 'Jim' });
     const r = await lookup(JAMES);
     expect(r).toMatchObject({ known: true, name: 'James Whitfield', first_name: 'James', name_source: 'profile' });
-    expect(r.guidance).toContain('Say "Welcome back, James."');
+    expect(r.guidance).toContain('Say "Hi James, I\'ve got your details up. What can I help you with today?"');
+  });
+
+  it('a recognized caller with only closed history is not quizzed about it', async () => {
+    const r = await lookup(MARIA);
+    expect(r.guidance).toContain('Say "Hi Maria, I\'ve got your details up. What can I help you with today?"');
+    expect(r.guidance).toContain('Do not bring up their past issues unless they do');
+    expect(r.guidance).not.toContain('Ask whether this is about');
   });
 });
 

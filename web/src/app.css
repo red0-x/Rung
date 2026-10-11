@@ -2326,6 +2326,8 @@ code {
   margin: 0;
   font-size: 0.98rem;
   line-height: 1.45;
+  /* The voice agent writes the brief one item per line (headline, When, Tried, Wants). */
+  white-space: pre-line;
 }
 .fact-score {
   display: flex;
