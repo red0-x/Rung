@@ -34,9 +34,16 @@ export function useScenes(root: RefObject<HTMLElement | null>): void {
             : clamp((vh - r.top) / (vh + r.height));
         s.style.setProperty('--p', p.toFixed(4));
         s.style.setProperty('--e', Math.pow(p, 1.8).toFixed(4));
-        const n = Number(s.dataset.steps);
-        if (n) {
-          const idx = Math.min(n - 1, Math.floor(p * n));
+        if (s.dataset.at) {
+          // who is speaking right now: odd lines are the agent, even lines the caller, silence once the call ends
+          const lines = s.dataset.at.split(',').filter((t) => Number(t) <= p).length;
+          s.dataset.talk = !lines || p > 0.56 ? '' : lines % 2 ? 'a' : 'c';
+          s.dataset.phase = p < 0.06 ? 'ring' : p < 0.56 ? 'call' : 'dash';
+        }
+        // data-steps = comma list of the progress where each step starts
+        const starts = s.dataset.steps?.split(',').map(Number);
+        if (starts) {
+          const idx = starts.filter((t) => t <= p).length - 1;
           s.style.setProperty('--s', String(idx));
           s.querySelectorAll<HTMLElement>('[data-step-list] > *').forEach((li, i) => {
             if (i === idx) li.setAttribute('aria-current', 'step');

@@ -2,6 +2,7 @@ import { useRef, type CSSProperties, type ReactNode } from 'react';
 import { Logo } from '../brand/Logo';
 import { useScenes } from './useScenes';
 import './wireframe.css';
+import './story.css';
 
 /** Floating side detail. x/y = resting spot (%), fx/fy = vw/vh drift, fz = px flown toward camera, r = tilt, k = pointer parallax depth. */
 function Tile(p: {
@@ -40,7 +41,7 @@ const STEPS = [
   ['Ring', 'The line rings. Rung picks up on the first ring.'],
   ['Recognize', 'SMS code. Verified. The agent already knows who is calling.'],
   ['Capture', 'Callers explain once. The issue lands in plain words.'],
-  ['Rank', 'Scored, queued, briefed. Your team calls back in order.'],
+  ['Rank', 'Scored, queued, briefed. It appears in your dashboard.'],
 ];
 
 const CARDS = [
@@ -49,6 +50,19 @@ const CARDS = [
   ['03', 'Ranked brief', 'Critical first. A score and a reason for every spot in the queue.', 'wf-c3'],
   ['04', 'Callback script', 'Open with the answer, not the question. Drafted before you dial.', 'wf-c4'],
   ['05', 'Team notes', 'Shared context for the next person. Nothing lives in one head.', 'wf-c5'],
+];
+
+/** Story progress at which each transcript line appears (call connects at 0.06, ends ~0.56, dashboard ~0.62). */
+const AT = [0.08, 0.14, 0.2, 0.27, 0.34, 0.42, 0.5];
+const BARS = Array.from({ length: 26 }, (_, i) => i);
+const TRANSCRIPT: [string, string][] = [
+  ['a', 'Thanks for calling Demo Bank. Who am I speaking with?'],
+  ['c', "Hi, it's Maya Chen."],
+  ['a', "Hi Maya. I just texted you a code so I know it's you."],
+  ['c', 'Got it. Four, eight, two, nine, one, seven.'],
+  ['a', "Verified. How can I help?"],
+  ['c', 'My card was declined at checkout. Twice.'],
+  ['a', "Got it. A specialist will call you back first. Talk soon, Maya."],
 ];
 
 const QUEUE = [
@@ -187,7 +201,7 @@ export default function Wireframe() {
         </section>
 
         {/* ---------- 2. STORY: a call, scrubbed by scroll ---------- */}
-        <section className="wf-story" id="story" data-scene="pin" data-steps="4">
+        <section className="wf-story" id="story" data-scene="pin" data-steps="0,0.14,0.34,0.56" data-at={AT.join(',')}>
           <div className="wf-story-stick">
             <div className="wf-story-left">
               <p className="wf-kicker">Watch</p>
@@ -202,15 +216,60 @@ export default function Wireframe() {
               </ol>
             </div>
             <div className="wf-story-right">
-              <div className="wf-phone">
-                <div className="wf-phone-head"><i /><span>Rung line · live</span></div>
-                <div className="wf-layer wf-l1">
-                  <div className="wf-ring" aria-hidden="true"><i /><i /><i /></div>
-                  <b>Incoming call</b><span>+1 (415) 555-0142</span>
+              <div className="wf-device">
+                <div className="wf-phone">
+                  <div className="wf-island" />
+                  <div className="wf-status"><b>9:41</b><span>●●●● 5G ▮</span></div>
+
+                  <div className="wf-call">
+                    <div className="wf-callhead">
+                      <div className="wf-avatar"><Logo variant="mark" size={26} title="" /></div>
+                      <b>Demo Bank Support</b>
+                      <span>Rung line · connected</span>
+                    </div>
+                    <div className="wf-tx" aria-label="Live transcript">
+                      {TRANSCRIPT.map(([who, text], i) => (
+                        <p key={i} className={`wf-ln wf-ln-${who}`} style={{ '--at': AT[i] } as CSSProperties}>
+                          <small>{who === 'a' ? 'Rung' : 'Maya'}</small>{text}
+                        </p>
+                      ))}
+                    </div>
+                    <div className="wf-vizs" aria-hidden="true">
+                      <div className="wf-viz wf-viz-caller"><small>Caller</small><div>{BARS.map((i) => <i key={i} style={{ '--i': i } as CSSProperties} />)}</div></div>
+                      <div className="wf-viz wf-viz-agent"><small>Rung</small><div>{BARS.map((i) => <i key={i} style={{ '--i': i + 5 } as CSSProperties} />)}</div></div>
+                    </div>
+                    <div className="wf-ctrls" aria-hidden="true">
+                      {['mute', 'keypad', 'speaker'].map((c) => <span key={c}><i />{c}</span>)}
+                    </div>
+                    <span className="wf-end-call" aria-hidden="true">✕</span>
+                  </div>
+
+                  <div className="wf-incoming" aria-hidden="true">
+                    <span className="wf-in-sub">mobile</span>
+                    <b>Demo Bank Support</b>
+                    <div className="wf-in-btns"><span className="no">✕<small>Decline</small></span><span className="yes">✆<small>Accept</small></span></div>
+                  </div>
+                  <i className="wf-home" />
                 </div>
-                <div className="wf-layer wf-l2"><small>RECOGNIZED</small><b>Maya Chen</b><span>Demo Bank · verified by SMS ✓</span></div>
-                <div className="wf-layer wf-l3"><small>ISSUE</small><b>Card declined at checkout</b><span>Second attempt this week</span></div>
-                <div className="wf-layer wf-l4"><small>RANKED</small><b><em>CRITICAL</em> 94</b><span>Callback #1 · brief ready</span></div>
+
+                <div className="wf-dashwin">
+                  <div className="wf-dw-bar"><i /><i /><i /><span>rung / queue</span></div>
+                  <div className="wf-dw-body">
+                    <p className="wf-dw-new">+ New callback from the call you just heard</p>
+                    <div className="wf-qrow2 wf-qr-new">
+                      <span className="n">1</span>
+                      <div><b>Maya Chen</b><p>Card declined at checkout</p></div>
+                      <em>CRITICAL</em><strong>94</strong>
+                    </div>
+                    <div className="wf-qrow2"><span className="n">2</span><div><b>Omar Haddad</b><p>Wire transfer stuck 3 days</p></div><em className="h">HIGH</em><strong>78</strong></div>
+                    <div className="wf-qrow2"><span className="n">3</span><div><b>Priya Nair</b><p>Update mailing address</p></div><em className="n2">NORMAL</em><strong>41</strong></div>
+                    <div className="wf-brief">
+                      <small>BRIEF</small>
+                      <p><b>Verified by SMS.</b> Two declines today on the card ending 4417. Likely a fraud hold. Offer to lift it and confirm the last charge.</p>
+                      <div className="wf-brief-tags"><span>Verified</span><span>2nd call this week</span><span>Callback script ready</span></div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
