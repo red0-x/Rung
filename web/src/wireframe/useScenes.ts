@@ -12,8 +12,8 @@ const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padSta
  * data-scene="pass" : p = 0 when the section enters the viewport bottom, 1 when it leaves the top.
  * data-scene="leave": p = 0 while the section top is at/below the viewport top, 1 once it has fully scrolled away (hero).
  * data-steps="a,b"  : progress where each step starts. Marks the nth child of [data-step-list] aria-current.
- * data-beats="a,b"  : progress where each beat starts. Sets --beat (1-based count of started beats). CSS turns that into
- *                     discrete show/hide with calc(), and transitions play on the change.
+ * data-beats="a,b"  : progress where each beat starts. Sets --beat and data-beat (1-based count of started beats). CSS turns
+ *                     that into discrete show/hide with calc(), and transitions play on the change.
  * [data-clock="s,e,n"] (any element inside a scene): a timer that runs 0..n seconds while the scene is between progress
  *                     s and e. Sets --clk (0..1) on itself and writes m:ss into its [data-t] child.
  * Root gets --page (whole page progress) and --mx/--my (pointer, -1..1) for parallax.
@@ -46,14 +46,12 @@ export function useScenes(root: RefObject<HTMLElement | null>): void {
         s.style.setProperty('--e', Math.pow(p, 1.8).toFixed(4));
 
         const beats = nums(d.beats);
-        if (beats) s.style.setProperty('--beat', String(beats.filter((t) => t <= p).length));
-
-        // Keep the original /wireframe story running until its new call sequence is built.
-        const at = nums(d.at);
-        if (at) {
-          const lines = at.filter((t) => t <= p).length;
-          d.talk = !lines || p > 0.56 ? '' : lines % 2 ? 'a' : 'c';
-          d.phase = p < 0.06 ? 'ring' : p < 0.56 ? 'call' : 'dash';
+        if (beats) {
+          const beat = String(beats.filter((t) => t <= p).length);
+          if (d.beat !== beat) {
+            s.style.setProperty('--beat', beat);
+            d.beat = beat;
+          }
         }
 
         for (const c of clocks.get(s) ?? []) {

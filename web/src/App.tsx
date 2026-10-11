@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useAuth } from './auth';
 import { Shell } from './components/Shell';
-import Landing from './landing/Landing';
 import Wireframe from './wireframe/Wireframe';
 import LoginPage from './pages/Login';
 import QueuePage from './pages/Queue';
@@ -12,7 +11,7 @@ import { Redirect, linkClick, useLocation } from './router';
 
 export default function App() {
   const { path } = useLocation();
-  const isApp = path !== '/' && path !== '/wireframe';
+  const isApp = path !== '/';
 
   // Dashboard type scales with the screen (readable from the back of a room).
   // Scoped to app routes so the landing page keeps its own sizing.
@@ -20,8 +19,9 @@ export default function App() {
     document.documentElement.classList.toggle('rung-app', isApp);
   }, [isApp]);
 
-  if (path === '/') return <Landing />;
-  if (path === '/wireframe') return <Wireframe />;
+  if (path === '/') return <Wireframe />;
+  // The wireframe became the home page; keep old /wireframe links working.
+  if (path === '/wireframe') return <Redirect to="/" />;
   if (path === '/login') return <LoginPage />;
   if (path === '/queue' || path === '/setup' || path === '/callers' || path === '/insights') return <Protected path={path} />;
   return <NotFound />;

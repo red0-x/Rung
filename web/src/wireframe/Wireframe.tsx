@@ -1,18 +1,14 @@
-import { useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { Tile, Cube } from './Tile';
 import { Logo } from '../brand/Logo';
 import { useScenes } from './useScenes';
+import CallStory from './CallStory';
+import AgentView from './AgentView';
+import { MARKS } from './stackMarks';
 import './wireframe.css';
 import './story.css';
 
 const STATEMENT = 'Your customers never wait on hold. Your team never starts a callback cold. Every call arrives ranked, briefed and ready.'.split(' ');
-
-const STEPS = [
-  ['Ring', 'The line rings. Rung picks up on the first ring.'],
-  ['Recognize', 'SMS code. Verified. The agent already knows who is calling.'],
-  ['Capture', 'Callers explain once. The issue lands in plain words.'],
-  ['Rank', 'Scored, queued, briefed. It appears in your dashboard.'],
-];
 
 const CARDS = [
   ['01', 'Verified caller', 'No more "can you spell your name". One SMS code and they are known.', 'wf-c1'],
@@ -22,56 +18,95 @@ const CARDS = [
   ['05', 'Team notes', 'Shared context for the next person. Nothing lives in one head.', 'wf-c5'],
 ];
 
-/** Story progress at which each transcript line appears (call connects at 0.06, ends ~0.56, dashboard ~0.62). */
-const AT = [0.08, 0.14, 0.2, 0.27, 0.34, 0.42, 0.5];
-const BARS = Array.from({ length: 26 }, (_, i) => i);
-const TRANSCRIPT: [string, string][] = [
-  ['a', 'Thanks for calling Demo Bank. Who am I speaking with?'],
-  ['c', "Hi, it's Maya Chen."],
-  ['a', "Hi Maya. I just texted you a code so I know it's you."],
-  ['c', 'Got it. Four, eight, two, nine, one, seven.'],
-  ['a', "Verified. How can I help?"],
-  ['c', 'My card was declined at checkout. Twice.'],
-  ['a', "Got it. A specialist will call you back first. Talk soon, Maya."],
-];
+/** Logos supplied by the team, used as single-color masks so they match the strip. */
+const MASKS: Record<string, string> = { Dial: '/brand/dial-mask.png', Keewano: '/brand/keewano-mask.png' };
+
+const STACK = ['Dial', 'Supabase', 'Vercel', 'Keewano', 'Claude', 'React', 'TypeScript', 'MCP'];
 
 const QUEUE = [
-  ['Maya Chen', 'Card declined at checkout', 'CRITICAL', 94, 'crit'],
+  ['Maria Reyes', 'Card charge she didn’t make, $4,200', 'CRITICAL', 94, 'crit'],
   ['Omar Haddad', 'Wire transfer stuck 3 days', 'HIGH', 78, 'high'],
   ['Priya Nair', 'Update mailing address', 'NORMAL', 41, 'norm'],
   ['Luis Ortega', 'Question about statement', 'LOW', 18, 'low'],
 ];
 
+type Mode = 'humans' | 'agents';
+const readMode = (): Mode => (new URLSearchParams(window.location.search).get('view') === 'agents' ? 'agents' : 'humans');
+
 export default function Wireframe() {
-  const root = useRef<HTMLDivElement>(null);
-  useScenes(root);
+  const [mode, setMode] = useState<Mode>(readMode);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (mode === 'agents') url.searchParams.set('view', 'agents');
+    else url.searchParams.delete('view');
+    window.history.replaceState(null, '', url);
+  }, [mode]);
+
+  // Bottom toggle: visible near the top and whenever you scroll up; slides away while scrolling down.
+  const [dockHidden, setDockHidden] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (y < 240) setDockHidden(false);
+      else if (Math.abs(y - last) > 6) setDockHidden(y > last);
+      last = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const pick = (m: Mode) => {
+    setMode(m);
+    window.scrollTo(0, 0);
+  };
 
   return (
-    <div className="wf-root" ref={root}>
-      <div className="wf-progress" aria-hidden="true" />
-
+    <div className="wf-root">
       <header className="wf-nav">
-        <a href="/" className="wf-brand" aria-label="Rung home"><Logo size={26} title="Rung" /></a>
+        <a href="/" className="wf-brand" aria-label="Rung home"><Logo size={24} title="Rung" /></a>
         <nav aria-label="Sections">
           <a href="#story">How it works</a>
-          <a href="#brief">The brief</a>
           <a href="#teams">For teams</a>
           <a href="#pricing">Pricing</a>
         </nav>
         <span className="wf-nav-actions">
-          <a href="/login" className="wf-login">Login</a>
-          <a href="/login?signup" className="wf-btn wf-btn-ink wf-btn-sm">Start for free</a>
+          <a href="/login" className="wf-login">Log in</a>
+          <a href="/login?signup" className="wf-btn wf-btn-ink wf-btn-sm">Get started</a>
         </span>
       </header>
 
+      {mode === 'agents' ? <AgentView /> : <HumanPage />}
+
+      <div className="wf-mode-dock" data-hidden={dockHidden || undefined}>
+        <span className="wf-mode" role="tablist" aria-label="View this site for">
+          {(['humans', 'agents'] as const).map((m) => (
+            <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => pick(m)}>
+              For {m}
+            </button>
+          ))}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function HumanPage() {
+  const root = useRef<HTMLDivElement>(null);
+  useScenes(root);
+
+  return (
+    <div ref={root}>
+      <div className="wf-progress" aria-hidden="true" />
       <main>
         {/* ---------- 1. HERO: side details fly at you ---------- */}
         <section className="wf-hero" data-scene="pin" data-rest="0">
           <div className="wf-hero-stick">
             <div className="wf-hero-copy">
-              <h1 className="wf-display">
-                <span className="wf-line"><span style={{ '--i': 0 } as CSSProperties}>Calls,</span></span>
-                <span className="wf-line"><span style={{ '--i': 1 } as CSSProperties}>fully answered</span></span>
+              <h1 className="wf-display" aria-label="Never on hold. Never a stranger.">
+                <span className="wf-line" aria-hidden="true"><span style={{ '--i': 0 } as CSSProperties}>Never,</span></span>
+                <span className="wf-line" aria-hidden="true"><span style={{ '--i': 1 } as CSSProperties}><Rotator words={['on hold', 'a stranger']} /></span></span>
               </h1>
               <p className="wf-sub">
                 Rung picks up your support line, verifies callers, and hands your team a ranked callback queue with a
@@ -81,52 +116,50 @@ export default function Wireframe() {
                 <a className="wf-btn wf-btn-ink wf-btn-xl" href="/login?signup">
                   <span className="wf-btn-mark"><Logo variant="mark" size={22} title="" /></span> Explore the platform
                 </a>
-                <a className="wf-btn wf-btn-ghost wf-btn-xl" href="#story">See a call happen</a>
+                <a className="wf-btn wf-btn-ghost wf-btn-xl" href="#story" onClick={playTour}>See a call happen</a>
               </div>
             </div>
 
             <div className="wf-stage">
-              {/* centerpiece dashboard */}
-              <div className="wf-dash">
-                <div className="wf-dash-top">
-                  <div className="wf-panel">
-                    <b>Queue today</b>
-                    <div className="wf-bars">
-                      {[62, 88, 45, 70, 30, 54, 92, 38].map((h, i) => (
-                        <i key={i} style={{ height: `${h}%`, '--i': i } as CSSProperties} />
+              {/* centerpiece: the real Rung dashboard layout, text removed */}
+              <div className="wf-dash wf-app" aria-hidden="true">
+                <aside className="wf-app-side">
+                  <span className="wf-app-logo"><Logo variant="mark" size={16} title="" /></span>
+                  <i className="on" /><i /><i /><i />
+                  <span className="wf-app-org" />
+                </aside>
+                <div className="wf-app-main">
+                  <div className="wf-app-head"><span className="sk sk-title" /><span className="wf-app-pill"><b /><span className="sk" /></span></div>
+                  <div className="wf-app-tiles">
+                    <div className="t t-cobalt"><span className="sk" /><b /></div>
+                    <div className="t"><span className="sk" /><div className="wf-app-bars">{[70, 45, 90, 30, 60, 20].map((h, i) => <i key={i} style={{ height: `${h}%` }} />)}</div></div>
+                    <div className="t"><span className="sk" /><div className="wf-app-tiers">{['crit', 'high', 'norm', 'low'].map((t) => <i key={t} className={`tier-${t}`} />)}</div></div>
+                    <div className="t"><span className="sk" /><span className="sk sk-w" /></div>
+                  </div>
+                  <div className="wf-app-md">
+                    <div className="wf-app-list">
+                      {['crit', 'high', 'high', 'norm', 'low'].map((t, i) => (
+                        <div key={i} className={`r${i === 0 ? ' sel' : ''}`}><i className={`tier-${t}`} /><span><span className="sk" /><span className="sk sk-s" /></span><b /></div>
                       ))}
                     </div>
-                  </div>
-                  <div className="wf-panel wf-donut-panel">
-                    <b>Priority</b>
-                    <div className="wf-donut"><span>104</span><small>calls</small></div>
-                  </div>
-                  <div className="wf-panel">
-                    <b>Callers</b>
-                    {['Verified', 'Returning', 'New'].map((l, i) => (
-                      <p className="wf-mini-row" key={l}><i /> {l} <em>{[84, 16, 4][i]}</em></p>
-                    ))}
-                  </div>
-                </div>
-                <div className="wf-dash-cards">
-                  {['Tiny Calls,', 'Zero Hold,', 'Big Relief', 'Ranked Fast'].map((t, i) => (
-                    <div key={t} className={`wf-card-mini wf-m${i}`}>
-                      <small>RUNG</small>
-                      <strong>{t}</strong>
-                      <span />
+                    <div className="wf-app-detail">
+                      <div className="wf-app-who"><i className="tier-crit" /><span><span className="sk" /><span className="sk sk-s" /></span></div>
+                      <div className="wf-app-chips"><span /><span /><span /></div>
+                      <span className="sk sk-l" /><span className="sk sk-l" /><span className="sk sk-m" />
+                      <div className="wf-app-btns"><span className="ink" /><span /></div>
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
 
               {/* flying details */}
-              <Tile cls="wf-t-pink" x="4%" y="22%" w="min(21vw,300px)" fx={-22} fy={-9} fz={620} r={-8} fr={-14} k={1.2}>
+              <Tile cls="wf-t-pink" x="2%" y="24%" w="min(16vw,230px)" fx={-22} fy={-9} fz={620} r={-8} fr={-14} k={1.2}>
                 <svg viewBox="0 0 200 130" className="wf-curve">
                   <path d="M20 112 C 40 6, 160 6, 180 112" />
                   <circle cx="20" cy="112" r="5" /><circle cx="180" cy="112" r="5" />
                 </svg>
               </Tile>
-              <Tile cls="wf-t-purple" x="19%" y="44%" w="min(16vw,230px)" fx={-14} fy={-14} fz={520} r={-6} k={1.8}>
+              <Tile cls="wf-t-purple" x="3%" y="47%" w="min(16vw,230px)" fx={-14} fy={-14} fz={520} r={-6} k={1.8}>
                 <h6>Verification</h6><p>✓ SMS code matched</p>
               </Tile>
               <Tile cls="wf-t-green" x="11%" y="67%" w="min(12vw,170px)" fx={-18} fy={8} fz={700} r={8} fr={10} k={2.4}>
@@ -140,7 +173,7 @@ export default function Wireframe() {
                 <div className="wf-slider"><s /><s /></div>
                 <div className="wf-slider-l"><span>0:00</span><span>0:30</span><span>Never</span></div>
               </Tile>
-              <Tile cls="wf-t-lime" x="63%" y="20%" w="min(16vw,230px)" fx={14} fy={-18} fz={560} r={7} fr={9} k={1.6}>
+              <Tile cls="wf-t-lime" x="84%" y="44%" w="min(16vw,230px)" fx={14} fy={-18} fz={560} r={7} fr={9} k={1.6}>
                 <h6>Language</h6>
                 <div className="wf-chips"><span>EN</span><span className="on">ES</span><span>FR</span><span>PT</span></div>
               </Tile>
@@ -164,86 +197,14 @@ export default function Wireframe() {
                 <div className="wf-vslide"><s /></div>
               </Tile>
               <Cube cls="wf-cb-purple" x="86%" y="8%" fx={14} fy={-16} fz={760} r={14} s={2.8} />
-              <Cube cls="wf-cb-cyan" x="2%" y="58%" fx={-12} fy={4} fz={800} r={-12} s={3} />
+              <Cube cls="wf-cb-cyan" x="17%" y="60%" fx={-12} fy={4} fz={800} r={-12} s={3} />
               <Cube cls="wf-cb-yellow" x="91%" y="74%" fx={16} fy={10} fz={780} r={10} s={2.4} />
             </div>
           </div>
         </section>
 
-        {/* ---------- 2. STORY: a call, scrubbed by scroll ---------- */}
-        <section className="wf-story" id="story" data-scene="pin" data-steps="0,0.14,0.34,0.56" data-at={AT.join(',')}>
-          <div className="wf-story-stick">
-            <div className="wf-story-left">
-              <p className="wf-kicker">Watch</p>
-              <h2 className="wf-display wf-h2">The real thing,<br />in action</h2>
-              <ol data-step-list className="wf-steps">
-                {STEPS.map(([t, d], i) => (
-                  <li key={t}>
-                    <span className="wf-step-n">0{i + 1}</span>
-                    <div><b>{t}</b><p>{d}</p></div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-            <div className="wf-story-right">
-              <div className="wf-device">
-                <div className="wf-phone">
-                  <div className="wf-island" />
-                  <div className="wf-status"><b>9:41</b><span>●●●● 5G ▮</span></div>
-
-                  <div className="wf-call">
-                    <div className="wf-callhead">
-                      <div className="wf-avatar"><Logo variant="mark" size={26} title="" /></div>
-                      <b>Demo Bank Support</b>
-                      <span>Rung line · connected</span>
-                    </div>
-                    <div className="wf-tx" aria-label="Live transcript">
-                      {TRANSCRIPT.map(([who, text], i) => (
-                        <p key={i} className={`wf-ln wf-ln-${who}`} style={{ '--at': AT[i] } as CSSProperties}>
-                          <small>{who === 'a' ? 'Rung' : 'Maya'}</small>{text}
-                        </p>
-                      ))}
-                    </div>
-                    <div className="wf-vizs" aria-hidden="true">
-                      <div className="wf-viz wf-viz-caller"><small>Caller</small><div>{BARS.map((i) => <i key={i} style={{ '--i': i } as CSSProperties} />)}</div></div>
-                      <div className="wf-viz wf-viz-agent"><small>Rung</small><div>{BARS.map((i) => <i key={i} style={{ '--i': i + 5 } as CSSProperties} />)}</div></div>
-                    </div>
-                    <div className="wf-ctrls" aria-hidden="true">
-                      {['mute', 'keypad', 'speaker'].map((c) => <span key={c}><i />{c}</span>)}
-                    </div>
-                    <span className="wf-end-call" aria-hidden="true">✕</span>
-                  </div>
-
-                  <div className="wf-incoming" aria-hidden="true">
-                    <span className="wf-in-sub">mobile</span>
-                    <b>Demo Bank Support</b>
-                    <div className="wf-in-btns"><span className="no">✕<small>Decline</small></span><span className="yes">✆<small>Accept</small></span></div>
-                  </div>
-                  <i className="wf-home" />
-                </div>
-
-                <div className="wf-dashwin">
-                  <div className="wf-dw-bar"><i /><i /><i /><span>rung / queue</span></div>
-                  <div className="wf-dw-body">
-                    <p className="wf-dw-new">+ New callback from the call you just heard</p>
-                    <div className="wf-qrow2 wf-qr-new">
-                      <span className="n">1</span>
-                      <div><b>Maya Chen</b><p>Card declined at checkout</p></div>
-                      <em>CRITICAL</em><strong>94</strong>
-                    </div>
-                    <div className="wf-qrow2"><span className="n">2</span><div><b>Omar Haddad</b><p>Wire transfer stuck 3 days</p></div><em className="h">HIGH</em><strong>78</strong></div>
-                    <div className="wf-qrow2"><span className="n">3</span><div><b>Priya Nair</b><p>Update mailing address</p></div><em className="n2">NORMAL</em><strong>41</strong></div>
-                    <div className="wf-brief">
-                      <small>BRIEF</small>
-                      <p><b>Verified by SMS.</b> Two declines today on the card ending 4417. Likely a fraud hold. Offer to lift it and confirm the last charge.</p>
-                      <div className="wf-brief-tags"><span>Verified</span><span>2nd call this week</span><span>Callback script ready</span></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* ---------- 2. STORY: first call, returning call, the rep (CallStory.tsx) ---------- */}
+        <CallStory />
 
         {/* ---------- 3. BRIEF: horizontal scroll ---------- */}
         <section className="wf-h" id="brief" data-scene="pin" data-rest="0">
@@ -252,7 +213,6 @@ export default function Wireframe() {
             <div className="wf-track">
               {CARDS.map(([n, t, d, c]) => (
                 <article key={n} className={`wf-hcard ${c}`}>
-                  <small>{n}</small>
                   <h3>{t}</h3>
                   <p>{d}</p>
                   <div className="wf-hcard-art" aria-hidden="true"><i /><i /><i /></div>
@@ -274,7 +234,7 @@ export default function Wireframe() {
         </section>
 
         {/* ---------- 5. QUEUE: rows drop in, parallax columns ---------- */}
-        <section className="wf-queue" id="pricing" data-scene="pass" data-rest="0.5">
+        <section className="wf-queue" id="ranked" data-scene="pass" data-rest="0.5">
           <div className="wf-queue-inner">
             <h2 className="wf-display wf-h2">Ranked.<br />Not racing.</h2>
             <div className="wf-qlist">
@@ -291,7 +251,20 @@ export default function Wireframe() {
           </div>
         </section>
 
-        {/* ---------- 6. CTA: details fly back in ---------- */}
+        {/* ---------- 6. PRICING: contact ---------- */}
+        <section className="wf-price" id="pricing">
+          <h2 className="wf-display wf-h2">Contact</h2>
+          <p>Every support line is different. Tell us about yours.</p>
+          <div className="wf-price-card">
+            <a className="wf-price-mail" href="mailto:hello@tryrung.today">hello@tryrung.today</a>
+            <span className="wf-price-btns">
+              <CopyButton text="hello@tryrung.today" />
+              <a className="wf-btn wf-btn-ink wf-btn-sm" href="mailto:hello@tryrung.today?subject=Rung%20pricing">Contact us</a>
+            </span>
+          </div>
+        </section>
+
+        {/* ---------- 7. CTA: details fly back in ---------- */}
         <section className="wf-end" data-scene="pass" data-rest="0.5">
           <Tile cls="wf-t-pink" x="6%" y="14%" w="min(18vw,260px)" fx={-30} fy={-20} fz={-500} r={-8} k={1.2}>
             <svg viewBox="0 0 200 130" className="wf-curve"><path d="M20 112 C 40 6, 160 6, 180 112" /><circle cx="20" cy="112" r="5" /><circle cx="180" cy="112" r="5" /></svg>
@@ -311,6 +284,86 @@ export default function Wireframe() {
           </div>
         </section>
       </main>
+
+      <section className="wf-made" aria-label="Made with">
+        <p>Made with</p>
+        <div className="wf-marquee">
+          <div className="wf-mq-track">
+            {[...STACK, ...STACK].map((name, i) => (
+              <span key={i} aria-hidden={i >= STACK.length || undefined}>
+                {MARKS[name] && <svg viewBox="0 0 24 24" aria-hidden="true"><path d={MARKS[name]} /></svg>}
+                {MASKS[name] && <i className="wf-mq-mask" style={{ '--m': `url(${MASKS[name]})` } as CSSProperties} />}
+                {name}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      className="wf-btn wf-btn-ghost wf-btn-sm"
+      onClick={() => {
+        void navigator.clipboard?.writeText(text).then(() => {
+          setDone(true);
+          window.setTimeout(() => setDone(false), 1600);
+        });
+      }}
+    >
+      {done ? 'Copied' : 'Copy email'}
+    </button>
+  );
+}
+
+/** Second hero line: phrases swap in place with a dissolve (blur + fade). Static under reduced motion. */
+function Rotator({ words, every = 2600 }: { words: string[]; every?: number }) {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const t = window.setInterval(() => setI((n) => (n + 1) % words.length), every);
+    return () => window.clearInterval(t);
+  }, [words.length, every]);
+  return (
+    <span className="wf-rot">
+      {words.map((w, k) => (
+        <span key={w} className="wf-rot-word" data-on={k === i || undefined}>{w}</span>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * "See a call happen": instead of jumping, glide from here to the end of the call story so every scroll-scrubbed
+ * transition plays. Any wheel, touch, key or click hands control back to the visitor.
+ */
+function playTour(e: MouseEvent<HTMLAnchorElement>) {
+  const end = document.querySelector<HTMLElement>('.cs-s3');
+  if (!end || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  e.preventDefault();
+  const from = window.scrollY;
+  const to = end.offsetTop + end.offsetHeight - window.innerHeight;
+  const dist = to - from;
+  if (dist <= 0) return;
+  const duration = Math.min(26000, Math.max(9000, dist / 0.9)); // ~0.9px per ms through the story
+  const start = performance.now();
+  const ease = (t: number) => (t < 0.06 ? (t / 0.06) ** 2 * 0.03 : t > 0.94 ? 1 - ((1 - t) / 0.06) ** 2 * 0.03 : 0.03 + (t - 0.06) / 0.88 * 0.94);
+  let raf = 0;
+  const stop = () => {
+    cancelAnimationFrame(raf);
+    for (const ev of ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const) window.removeEventListener(ev, stop);
+  };
+  for (const ev of ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const) window.addEventListener(ev, stop, { passive: true });
+  const step = (now: number) => {
+    const t = Math.min(1, (now - start) / duration);
+    window.scrollTo(0, from + dist * ease(t));
+    if (t < 1) raf = requestAnimationFrame(step);
+    else stop();
+  };
+  raf = requestAnimationFrame(step);
 }

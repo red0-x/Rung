@@ -1,4 +1,4 @@
-/* Rung dashboard (login, shell, queue, callers, setup). Landing styles live in landing/ (prefix landing-). */
+/* Rung dashboard (login, shell, queue, callers, setup). Home page styles live in wireframe/ (prefix wf-, cs-). */
 
 html.rung-app {
   font-size: clamp(15px, 0.4vw + 9.5px, 19px);
