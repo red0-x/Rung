@@ -22,3 +22,22 @@ dist/
 server/seed.json
 .vercel
 .gstack/
+
+# Secrets and local env (any spelling)
+.env
+.env.*
+!.env.example
+env.local
+*.local
+*.pem
+*.key
+secrets/
+.supabase/
+supabase/.temp/
+
+# Tunnels / local tooling
+.ngrok/
+.cloudflared/
+bun.lock
+bun.lockb
+.jcode/
