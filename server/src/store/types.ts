@@ -1,4 +1,4 @@
-import type { Org, OrgInvite, OrgMember, Profile, QueueItem, QueueStatus, Verification } from '../types.js';
+import type { LiveCall, Org, OrgInvite, OrgMember, Profile, QueueItem, QueueStatus, Verification } from '../types.js';
 
 /**
  * Persistence boundary. Two implementations: in-memory (tests, zero-setup dev)
@@ -59,6 +59,15 @@ export interface Store {
     orgId: string,
     opts?: { statuses?: QueueStatus[]; limit?: number; since?: number; orderBy?: 'createdAt' | 'doneAt' },
   ): Promise<QueueItem[]>;
+
+  // Live calls (on the line with the voice agent)
+  /** Insert or replace this number's live call (a new call from the same number starts over). */
+  startLiveCall(call: LiveCall): Promise<void>;
+  /** Patch this number's live call, unless it is already queued. No-op if there is none. */
+  updateLiveCall(orgId: string, phone: string, patch: Partial<Pick<LiveCall, 'stage' | 'name' | 'updatedAt' | 'queuedAt'>>): Promise<void>;
+  endLiveCall(orgId: string, phone: string): Promise<void>;
+  /** Not yet queued and updated since `activeSince`, or queued since `queuedSince`. Oldest first. */
+  listLiveCalls(orgId: string, activeSince: number, queuedSince: number): Promise<LiveCall[]>;
 
   /** Webhook dedupe (global). Returns true the first time an event id is seen. */
   markEventSeen(eventId: string): Promise<boolean>;

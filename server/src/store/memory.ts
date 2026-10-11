@@ -1,4 +1,4 @@
-import type { Org, OrgInvite, OrgMember, Profile, QueueItem, QueueStatus, Verification } from '../types.js';
+import type { LiveCall, Org, OrgInvite, OrgMember, Profile, QueueItem, QueueStatus, Verification } from '../types.js';
 import type { Store } from './types.js';
 
 const key = (orgId: string, phone: string) => `${orgId}:${phone}`;
@@ -12,6 +12,7 @@ export function createMemoryStore(): Store {
   const verifications = new Map<string, Verification>();
   const items = new Map<string, QueueItem>();
   const seen = new Set<string>();
+  const live = new Map<string, LiveCall>();
 
   const newestFirst = (a: QueueItem, b: QueueItem) => b.createdAt - a.createdAt;
   const matches = (i: QueueItem, statuses?: QueueStatus[]) => !statuses || statuses.includes(i.status);
@@ -150,6 +151,23 @@ export function createMemoryStore(): Store {
       return opts?.limit ? list.slice(0, opts.limit) : list;
     },
 
+    async startLiveCall(call) {
+      live.set(key(call.orgId, call.phone), clone(call));
+    },
+    async updateLiveCall(orgId, phone, patch) {
+      const cur = live.get(key(orgId, phone));
+      if (cur && cur.queuedAt === undefined) live.set(key(orgId, phone), { ...cur, ...clone(patch) });
+    },
+    async endLiveCall(orgId, phone) {
+      live.delete(key(orgId, phone));
+    },
+    async listLiveCalls(orgId, activeSince, queuedSince) {
+      return [...live.values()]
+        .filter((c) => c.orgId === orgId && (c.queuedAt === undefined ? c.updatedAt >= activeSince : c.queuedAt >= queuedSince))
+        .sort((a, b) => a.startedAt - b.startedAt)
+        .map(clone);
+    },
+
     async markEventSeen(eventId) {
       if (seen.has(eventId)) return false;
       seen.add(eventId);
@@ -159,6 +177,7 @@ export function createMemoryStore(): Store {
     async forgetCaller(orgId, phone) {
       const profile = profiles.delete(key(orgId, phone));
       verifications.delete(key(orgId, phone));
+      live.delete(key(orgId, phone));
       let n = 0;
       for (const [k, i] of items) if (i.orgId === orgId && i.phone === phone && items.delete(k)) n++;
       return { profile, items: n };
@@ -168,6 +187,7 @@ export function createMemoryStore(): Store {
       for (const [k, p] of profiles) if (p.orgId === orgId) profiles.delete(k);
       for (const [k, v] of verifications) if (v.orgId === orgId) verifications.delete(k);
       for (const [k, i] of items) if (i.orgId === orgId) items.delete(k);
+      for (const [k, c] of live) if (c.orgId === orgId) live.delete(k);
     },
   };
 }

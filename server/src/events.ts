@@ -54,6 +54,7 @@ export async function handleDialEvent(evt: DialEvent, deps: Deps): Promise<void>
       log(`call.ended ${callId}: no org owns the dialed number`);
       return;
     }
+    await store.endLiveCall(org.id, from);
     const endedAt = evt.createdAt ? Date.parse(evt.createdAt) || now() : now();
     const durationSec = typeof d.durationSeconds === 'number' ? d.durationSeconds : 0;
     const item = await itemForCall(store, org.id, from, endedAt - durationSec * 1000, endedAt);

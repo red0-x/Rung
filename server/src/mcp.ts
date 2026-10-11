@@ -14,7 +14,7 @@ import { estimateCallbackMinutes, scoreItem } from './scoring.js';
 import { describeFacts, factsInput, hasFacts, mergeFacts, missingFacts } from './facts.js';
 import { clockTime, confirmationSms, smsText } from './sms.js';
 import type { Store } from './store/types.js';
-import { INTENTS, type Org, type QueueItem, type Trust } from './types.js';
+import { INTENTS, type LiveCall, type Org, type QueueItem, type Trust } from './types.js';
 
 export { smsText };
 
@@ -92,6 +92,16 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
     if (!k?.enabled) return;
     k.track(event, o.slug, phone, qualifier);
     if (cfg.inlineWebhooks) waitUntil(k.flush().catch(() => {}));
+  };
+  /** Dashboard "on the line now". Display only, so a failed write is logged and never fails the tool. */
+  const live = async (o: Org, phone: string, patch: Partial<LiveCall>, start = false) => {
+    try {
+      const t = now();
+      if (start) await store.startLiveCall({ orgId: o.id, phone, known: false, stage: 'listening', startedAt: t, updatedAt: t, ...patch });
+      else await store.updateLiveCall(o.id, phone, { ...patch, updatedAt: t });
+    } catch (err) {
+      log(`live call ${tag(o, phone)}: ${(err as Error).message}`);
+    }
   };
   const tag = (o: Org, phone: string) => `[${o.slug}] ${maskPhone(phone, '*')}`;
 
@@ -181,6 +191,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       }
 
       emit('call_started', o, phone, profile ? 'known' : 'new');
+      await live(o, phone, { known: !!profile, name: name ?? undefined }, true);
       log(`lookup_caller ${tag(o, phone)} known=${!!profile} calls=${history.total} open=${openRequest?.status ?? 'none'}`);
       return ok({
         known: !!profile,
@@ -239,6 +250,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
           log(`send_code ${tag(o, phone)} sms FAILED, continuing because demo codes are on: ${(err as Error).message}`);
         }
         emit('code_sent', o, phone);
+        await live(o, phone, { stage: 'verifying' });
         log(`send_code ${tag(o, phone)}`);
         return ok({
           sent: true,
@@ -268,6 +280,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       const res = await otp.verify(o.id, phone, code);
       log(`check_code ${tag(o, phone)} ${res.ok ? 'ok' : res.reason}`);
       emit(res.ok ? 'code_verified' : 'code_failed', o, phone);
+      if (res.ok) await live(o, phone, { stage: 'verified' });
       if (res.ok) {
         return ok({ verified: true, guidance: 'Verified. Continue with what the caller needs.' });
       }
@@ -330,6 +343,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       const open = await store.latestQueueItemForPhone(o.id, phone, ['queued', 'in_progress']);
       if (open && !open.name) await store.updateQueueItem(open.id, { name: clean });
       emit('profile_saved', o, phone);
+      await live(o, phone, { stage: 'saving', name: clean });
       if (facts && hasFacts(profile.facts)) emit('context_saved', o, phone, String(Object.values(facts).filter(Boolean).length));
       log(`save_profile ${tag(o, phone)}`);
       return ok({
@@ -364,6 +378,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       const facts = mergeFacts(profile.facts, input, t);
       await store.upsertProfile({ ...profile, facts, factsUpdatedAt: t });
       emit('context_saved', o, phone, String(Object.values(input).filter(Boolean).length));
+      await live(o, phone, { stage: 'saving' });
       log(`update_profile ${tag(o, phone)} fields=${Object.keys(input).filter((k) => (input as Record<string, unknown>)[k]).join(',')}`);
       return ok({ saved: true, remembered: describeFacts(facts), guidance: 'Briefly acknowledge ("Got it, thanks.") and move on. Do not read their details back.' });
     },
@@ -450,6 +465,7 @@ export function buildMcpServer(org: Org | null, ctx: CallerCtx, deps: Deps): Mcp
       const etaAt = texted0 ? item.etaAt! : t + eta * 60_000;
       const score = scoreItem(item, t, s);
       emit('call_queued', o, phone, score.tier);
+      await live(o, phone, { stage: 'queued', queuedAt: t, ...(item.name ? { name: item.name } : {}) });
       log(`triage_call ${tag(o, phone)} ${intent} -> #${position} (${score.total} pts)`);
 
       // The request is saved. Record the exact promise (minutes + clock time), then text it once.

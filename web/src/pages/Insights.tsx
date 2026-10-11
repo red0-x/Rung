@@ -158,25 +158,9 @@ export default function InsightsPage() {
 
       {status && <p className="muted small ins-status">{status}</p>}
 
-      <section className="card ins-how" aria-labelledby="ins-how-h">
-        <h2 id="ins-how-h" className="card-title">
-          How this works
-        </h2>
-        <ol className="ins-steps">
-          <li>
-            <b>Every call sends events.</b>
-            <span>Call started, queued, called back, details saved, text sent. Callers are an anonymous ID: no phone numbers, names or amounts.</span>
-          </li>
-          <li>
-            <b>Keewano counts them.</b>
-            <span>Keewano stores the events for this company and answers questions about them.</span>
-          </li>
-          <li>
-            <b>Rung asks, you read.</b>
-            <span>These numbers are Keewano's answers. They run a few minutes behind live calls; the Queue page is for right now.</span>
-          </li>
-        </ol>
-      </section>
+      <p className="muted small">
+        Counted by Keewano from anonymous call events (no phone numbers or names), a few minutes behind live. For right now, use the Queue.
+      </p>
     </div>
   );
 }

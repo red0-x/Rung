@@ -5,6 +5,7 @@ import { Detail, type BusyKind } from '../components/Detail';
 import { Toast, useToast } from '../components/Toast';
 import { Drawer } from '../components/Drawer';
 import { IconInfo } from '../components/Icons';
+import { LiveCalls } from '../components/LiveCalls';
 import { ListRow, type RowFlag } from '../components/QueueRow';
 import { CodesCard, Timeline } from '../components/Rail';
 import { Rules } from '../components/Rules';
@@ -297,13 +298,16 @@ export default function QueuePage() {
         : 'No one waiting. Your queue is clear.'
       : `${queued.length} ${queued.length === 1 ? 'caller' : 'callers'} waiting. Longest wait ${longestMin < 1 ? 'under a minute' : `${longestMin} min`}.`;
 
+  const talking = data?.live?.filter((c) => !c.queuedAt).length ?? 0;
+  const sentenceLive = talking ? `${sentence} ${talking} on the line with the agent.` : sentence;
+
   const agingPerMin = settings?.agingPerMin ?? 2;
   const agingCap = settings?.agingCap ?? 150;
 
   return (
     <div className="queue-page">
       <div className="q-main">
-        <PageHeader title={`${greeting()}, ${org?.name ?? 'there'}`} sentence={sentence} right={<ReadyPill offline={!!queue.error} reps={data ? { online: onlineReps, available: data.availableReps } : undefined} />} />
+        <PageHeader title={`${greeting()}, ${org?.name ?? 'there'}`} sentence={sentenceLive} right={<ReadyPill offline={!!queue.error} reps={data ? { online: onlineReps, available: data.availableReps } : undefined} />} />
 
         {queue.error && (
           <p className="banner" role="alert">
@@ -325,6 +329,8 @@ export default function QueuePage() {
             [0, 1, 2, 3].map((i) => <div key={i} className={`tile sk-tile${i === 0 ? ' tile-cobalt' : ''}`} />)
           )}
         </div>
+
+        {data?.live && <LiveCalls calls={data.live} nowEst={nowEst} />}
 
         <div className={`md${sheetOpen ? ' sheet-open' : ''}`}>
           <section className="md-list" aria-labelledby="list-h">

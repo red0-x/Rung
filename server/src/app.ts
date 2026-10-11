@@ -26,6 +26,10 @@ export interface AppDeps extends Deps {
 }
 
 const DONE_VISIBLE_MS = 12 * 3_600_000;
+/** A live call that stops updating this long is treated as hung up (no call.ended arrived). */
+const LIVE_STALE_MS = 15 * 60_000;
+/** After triage_call a live call stays visible this long, so the dashboard can show it moving into the queue. */
+const LIVE_HANDOFF_MS = 8_000;
 /** /api/callers reads at most this many of the org's newest queue items. */
 const CALLERS_ITEM_CAP = 2000;
 
@@ -402,11 +406,16 @@ export function createApp(deps: AppDeps): Express {
     const org = orgOf(res);
     const s = org.settings;
     const t = now();
-    const [active, doneList, today, members] = await Promise.all([
+    const [active, doneList, today, members, liveCalls] = await Promise.all([
       store.listQueueItems(org.id, { statuses: ['queued', 'in_progress'] }),
       store.listQueueItems(org.id, { statuses: ['done'], since: t - DONE_VISIBLE_MS - 24 * 3_600_000, limit: 50 }),
       store.listQueueItems(org.id, { since: t - TIME_SAVED_WINDOW_MS }),
       store.listMembers(org.id),
+      // Display only: a missing live_calls table (migration not applied) must not break the queue.
+      store.listLiveCalls(org.id, t - LIVE_STALE_MS, t - LIVE_HANDOFF_MS).catch((err) => {
+        log(`[${org.slug}] live calls: ${(err as Error).message}`);
+        return [];
+      }),
     ]);
     const reps = repViews(members, active.filter((i) => i.status === 'in_progress'), t);
     const queued = rankQueued(active, t, s).map((x, i) => view(x, i + 1, s));
@@ -427,6 +436,15 @@ export function createApp(deps: AppDeps): Express {
       queued,
       inProgress,
       done,
+      live: liveCalls.map((c) => ({
+        key: callerKey(org.id, c.phone),
+        name: c.name ?? null,
+        phoneMasked: maskPhone(c.phone),
+        known: c.known,
+        stage: c.stage,
+        startedAt: c.startedAt,
+        queuedAt: c.queuedAt ?? null,
+      })),
       stats: {
         waiting: queued.length,
         inProgress: inProgress.length,

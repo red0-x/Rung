@@ -90,11 +90,24 @@ export interface NextResponse extends CallbackResponse {
   item: QueueItemView;
 }
 
+/** A call still on the line with the voice agent. Stays for a few seconds after triage (queuedAt set) for the handoff. */
+export interface LiveCallView {
+  key: string;
+  name: string | null;
+  phoneMasked: string;
+  known: boolean;
+  stage: 'listening' | 'verifying' | 'verified' | 'saving' | 'queued';
+  startedAt: number;
+  queuedAt: number | null;
+}
+
 export interface QueueResponse {
   now: number;
   queued: QueueItemView[];
   inProgress: QueueItemView[];
   done: QueueItemView[];
+  /** Optional so an older server still type-checks; treat missing as []. */
+  live?: LiveCallView[];
   stats: { waiting: number; inProgress: number; longestWaitMin: number; avgWaitMin: number };
   /** Signed-in user's id, to tell your callbacks from teammates'. */
   me: string;

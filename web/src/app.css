@@ -805,6 +805,101 @@ code {
   transition: stroke-dashoffset 800ms var(--ease-out);
 }
 
+/* On the line now: calls the voice agent is handling, before they reach the queue */
+.live {
+  margin-top: 1.75rem;
+  animation: fade-in 240ms var(--ease-out);
+}
+.live-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+  font: 700 1.15rem/1.2 var(--font);
+  letter-spacing: -0.01em;
+}
+.live-count {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(31, 157, 85, 0.14);
+  color: #17733f;
+  font-size: 0.85rem;
+}
+.live-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.5rem;
+}
+.live-card {
+  --tier-tint: rgba(31, 157, 85, 0.14);
+  --tier-ink: #17733f;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 16px;
+  background: var(--panel);
+  animation: pop-in 260ms var(--ease-out);
+}
+.live-who {
+  display: grid;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+.live-who b {
+  font: 700 1.02rem/1.2 var(--font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.live-time {
+  align-self: start;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.live-stage {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.live-steps {
+  display: flex;
+  gap: 3px;
+}
+.live-steps i {
+  width: 1.4rem;
+  height: 0.3rem;
+  border-radius: 999px;
+  background: var(--ink-10);
+  transition: background-color 300ms var(--ease-out);
+}
+.live-steps i.on {
+  background: var(--ready);
+}
+.live-card.is-queued {
+  --tier-tint: var(--surface);
+  --tier-ink: var(--cobalt-ink);
+  background: var(--sel);
+  animation: live-leave 500ms var(--ease-in-out) 6.5s forwards;
+}
+.live-card.is-queued .live-steps i.on {
+  background: var(--cobalt);
+}
+.live-card.is-queued .live-stage {
+  color: var(--cobalt-ink);
+}
+@keyframes live-leave {
+  to {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
 /* Master–detail */
 .md {
   display: grid;
@@ -2892,41 +2987,6 @@ code {
 .ins-status {
   margin-top: 0.75rem;
 }
-.ins-how {
-  margin-top: 1.5rem;
-}
-.ins-steps {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.25rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: step;
-}
-.ins-steps li {
-  display: grid;
-  gap: 0.3rem;
-  align-content: start;
-  counter-increment: step;
-}
-.ins-steps li::before {
-  content: counter(step);
-  display: grid;
-  place-items: center;
-  width: 1.6rem;
-  height: 1.6rem;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--ivory);
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-.ins-steps span {
-  color: var(--ink-60, inherit);
-  font-size: 0.9rem;
-  line-height: 1.45;
-}
 @media (max-width: 1100px) {
   .ins-grid > *,
   .ins-grid > :nth-child(n + 4) {
@@ -2934,9 +2994,6 @@ code {
   }
 }
 @media (max-width: 900px) {
-  .ins-steps {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .ins-grid > *,
   .ins-grid > :nth-child(n + 4) {
     grid-column: 1 / -1;

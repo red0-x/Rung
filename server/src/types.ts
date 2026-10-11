@@ -120,6 +120,23 @@ export interface Verification {
   verifiedUntil?: number;
 }
 
+/** Where a call that is still on the line has got to, from the tools the voice agent has called so far. */
+export type LiveStage = 'listening' | 'verifying' | 'verified' | 'saving' | 'queued';
+
+/** A call in progress with the voice agent, before (and briefly after) it lands in the queue. One per number per org. */
+export interface LiveCall {
+  orgId: string;
+  phone: string;
+  /** Had a saved profile at this org when the call started. */
+  known: boolean;
+  name?: string;
+  stage: LiveStage;
+  startedAt: number;
+  updatedAt: number;
+  /** Set by triage_call. The call is in the queue from here on; later tool calls don't move it. */
+  queuedAt?: number;
+}
+
 export interface QueueItem {
   id: string;
   orgId: string;

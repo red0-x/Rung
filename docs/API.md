@@ -98,6 +98,10 @@ interface QueueResponse {
   queued: QueueItemView[];        // ranked, rank = 1..n
   inProgress: QueueItemView[];
   done: QueueItemView[];          // last 6 within 12h
+  // On the line with the voice agent now (lookup_caller started it, updated in the last 15 min), plus calls
+  // triaged in the last 8 s (queuedAt set) so the dashboard can show the handoff. Oldest first.
+  live: {key, name: string|null, phoneMasked, known: boolean,
+         stage: 'listening'|'verifying'|'verified'|'saving'|'queued', startedAt: number, queuedAt: number|null}[];
   stats: { waiting: number; inProgress: number; longestWaitMin: number; avgWaitMin: number };
   me: string;                 // signed-in user id (tell your callbacks from teammates')
   reps: {id, name, role:'admin'|'rep', online:boolean, busy:boolean}[];  // online = polled in the last 60 s; busy = holds a callback

@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { normalizeSettings } from '../settings.js';
-import type { Org, OrgMember, Profile, QueueItem, QueueStatus, Verification } from '../types.js';
+import type { LiveCall, Org, OrgMember, Profile, QueueItem, QueueStatus, Verification } from '../types.js';
 import type { Store } from './types.js';
 
 /**
@@ -53,6 +53,19 @@ function rowToProfile(r: Row): Profile {
     facts: r.facts && typeof r.facts === 'object' && Object.keys(r.facts).length ? r.facts : undefined,
     factsUpdatedAt: ms(r.facts_updated_at),
     createdAt: ms(r.created_at)!,
+  };
+}
+
+function rowToLiveCall(r: Row): LiveCall {
+  return {
+    orgId: r.org_id,
+    phone: r.phone,
+    known: !!r.known,
+    name: opt(r.name),
+    stage: r.stage,
+    startedAt: ms(r.started_at)!,
+    updatedAt: ms(r.updated_at)!,
+    queuedAt: ms(r.queued_at),
   };
 }
 
@@ -307,6 +320,46 @@ export function createSupabaseStore(sb: SupabaseClient): Store {
       return (must(await q) ?? []).map(rowToItem);
     },
 
+    async startLiveCall(c) {
+      must(
+        await sb.from('live_calls').upsert(
+          {
+            org_id: c.orgId,
+            phone: c.phone,
+            known: c.known,
+            name: c.name ?? null,
+            stage: c.stage,
+            started_at: iso(c.startedAt),
+            updated_at: iso(c.updatedAt),
+            queued_at: iso(c.queuedAt),
+          },
+          { onConflict: 'org_id,phone' },
+        ),
+      );
+    },
+    async updateLiveCall(orgId, phone, p) {
+      const row: Row = {};
+      if (p.stage !== undefined) row.stage = p.stage;
+      if (p.name !== undefined) row.name = p.name;
+      if (p.updatedAt !== undefined) row.updated_at = iso(p.updatedAt);
+      if (p.queuedAt !== undefined) row.queued_at = iso(p.queuedAt);
+      must(await sb.from('live_calls').update(row).eq('org_id', orgId).eq('phone', phone).is('queued_at', null));
+    },
+    async endLiveCall(orgId, phone) {
+      must(await sb.from('live_calls').delete().eq('org_id', orgId).eq('phone', phone));
+    },
+    async listLiveCalls(orgId, activeSince, queuedSince) {
+      const rows = must(
+        await sb
+          .from('live_calls')
+          .select('*')
+          .eq('org_id', orgId)
+          .or(`and(queued_at.is.null,updated_at.gte.${iso(activeSince)}),queued_at.gte.${iso(queuedSince)}`)
+          .order('started_at', { ascending: true }),
+      );
+      return (rows ?? []).map(rowToLiveCall);
+    },
+
     async markEventSeen(eventId) {
       const { error } = await sb.from('seen_events').insert({ event_id: eventId });
       if (!error) return true;
@@ -315,12 +368,14 @@ export function createSupabaseStore(sb: SupabaseClient): Store {
     },
 
     async forgetCaller(orgId, phone) {
-      const [p, v, q] = await Promise.all([
+      const [p, v, l, q] = await Promise.all([
         sb.from('profiles').delete().eq('org_id', orgId).eq('phone', phone).select('phone'),
         sb.from('verifications').delete().eq('org_id', orgId).eq('phone', phone),
+        sb.from('live_calls').delete().eq('org_id', orgId).eq('phone', phone),
         sb.from('queue_items').delete().eq('org_id', orgId).eq('phone', phone).select('id'),
       ]);
       must(v);
+      must(l);
       return { profile: (must(p) ?? []).length > 0, items: (must(q) ?? []).length };
     },
 
@@ -328,6 +383,7 @@ export function createSupabaseStore(sb: SupabaseClient): Store {
       must(await sb.from('queue_items').delete().eq('org_id', orgId));
       must(await sb.from('verifications').delete().eq('org_id', orgId));
       must(await sb.from('profiles').delete().eq('org_id', orgId));
+      must(await sb.from('live_calls').delete().eq('org_id', orgId));
     },
   };
 }
