@@ -64,6 +64,12 @@ export default function QueuePage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Until someone picks a caller, the brief follows whoever is #1.
+  const [pinned, setPinned] = useState(false);
+  const pick = useCallback((id: string) => {
+    setSelectedId(id);
+    setPinned(true);
+  }, []);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
 
@@ -118,10 +124,12 @@ export default function QueuePage() {
 
   // Selection: stable across polls and reorders; falls back to #1 when the selected caller leaves.
   const order = useMemo(() => [...inProgress, ...queued], [inProgress, queued]);
-  const selected = order.find((i) => i.id === selectedId) ?? queued[0] ?? inProgress[0];
+  const held = order.find((i) => i.id === selectedId);
+  const selected = (pinned ? held : undefined) ?? queued[0] ?? held ?? inProgress[0];
   useEffect(() => {
+    if (selectedId && !held && pinned) setPinned(false);
     if (selected && selected.id !== selectedId) setSelectedId(selected.id);
-  }, [selected, selectedId]);
+  }, [selected, selectedId, held, pinned]);
 
   const claim = useCallback(
     async (item: QueueItemView) => {
@@ -131,7 +139,7 @@ export default function QueuePage() {
         const res = await api.callback(item.id);
         setPhones((p) => ({ ...p, [item.id]: res }));
         setLocal((l) => ({ ...l, [item.id]: { status: 'in_progress', item, at: Date.now() } }));
-        setSelectedId(item.id);
+        pick(item.id);
         queue.refresh();
       } catch (err) {
         setActionError(`Could not start the callback. ${errorText(err)}`);
@@ -139,7 +147,7 @@ export default function QueuePage() {
         setBusy(null);
       }
     },
-    [queue],
+    [queue, pick],
   );
 
   const finish = useCallback(
@@ -170,7 +178,7 @@ export default function QueuePage() {
         e.preventDefault();
         const idx = Math.max(0, order.findIndex((i) => i.id === selected?.id));
         const next = order[Math.min(order.length - 1, Math.max(0, idx + (e.key === 'ArrowDown' ? 1 : -1)))]!;
-        setSelectedId(next.id);
+        pick(next.id);
         document.querySelector(`[data-id="${CSS.escape(next.id)}"]`)?.scrollIntoView({ block: 'nearest' });
       } else if (e.key === 'Enter' && !(t && t.closest('button, a'))) {
         if (selected && selected.status === 'queued' && !busy) {
@@ -181,7 +189,7 @@ export default function QueuePage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [order, selected, busy, claim, rulesOpen]);
+  }, [order, selected, busy, claim, rulesOpen, pick]);
 
   const longestMin = queued.length ? Math.floor(Math.max(...queued.map((i) => nowEst - i.createdAt)) / 60_000) : 0;
   const sentence = !data
@@ -259,7 +267,7 @@ export default function QueuePage() {
                         selected={selected?.id === item.id}
                         leaving={leaving}
                         onSelect={(id) => {
-                          setSelectedId(id);
+                          pick(id);
                           setSheetOpen(true);
                         }}
                       />
@@ -278,7 +286,7 @@ export default function QueuePage() {
                       selected={selected?.id === item.id}
                       leaving={leaving}
                       onSelect={(id) => {
-                        setSelectedId(id);
+                        pick(id);
                         setSheetOpen(true);
                       }}
                     />
