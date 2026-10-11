@@ -158,6 +158,16 @@
 .wf-app-btns span.ink { background: var(--ink); }
 
 /* ---------- For humans / For agents: segmented control, same glass as the nav ---------- */
+/* docked at the bottom center; hides on scroll down, returns on scroll up */
+.wf-mode-dock {
+  position: fixed; z-index: 50; left: 50%; bottom: 20px; padding: 5px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72); -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px);
+  box-shadow: 0 0 0 1px var(--ink-10), 0 12px 30px -12px rgba(17, 17, 17, 0.25);
+  transform: translate(-50%, 0); transition: transform 420ms var(--ease), opacity 300ms ease;
+}
+.wf-mode-dock[data-hidden] { transform: translate(-50%, calc(100% + 32px)); opacity: 0; pointer-events: none; }
+.wf-mode-dock .wf-mode { background: transparent; box-shadow: none; padding: 0; }
+.wf-mode-dock .wf-mode button { padding: 9px 16px; font-size: 14px; }
 .wf-mode { display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(17, 17, 17, 0.05); box-shadow: inset 0 0 0 1px var(--ink-10); }
 .wf-mode button { white-space: nowrap; border: 0; background: transparent; padding: 7px 12px; border-radius: 999px; font: 500 13px/1 var(--display); color: var(--ink-60); cursor: pointer; transition: background-color 180ms var(--ease), color 180ms ease, box-shadow 180ms ease; }
 .wf-mode button[aria-selected='true'] { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(17, 17, 17, 0.08), 0 0 0 1px var(--ink-10); }
@@ -204,6 +214,7 @@
 .wf-marquee { flex: 1; min-width: 0; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
 .wf-mq-track { display: flex; width: max-content; animation: wf-marquee 36s linear infinite; }
 .wf-mq-track span { display: inline-flex; align-items: center; gap: 10px; padding: 0 clamp(22px, 3vw, 44px); font: 700 clamp(20px, 2vw, 28px)/1 var(--display); letter-spacing: -0.04em; color: rgba(17, 17, 17, 0.38); white-space: nowrap; }
+.wf-mq-mask { width: 0.95em; height: 0.95em; flex: none; background: currentColor; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
 .wf-mq-track svg { width: 0.95em; height: 0.95em; fill: currentColor; flex: none; }
 @media (hover: hover) { .wf-marquee:hover .wf-mq-track { animation-play-state: paused; } }
 @keyframes wf-marquee { to { transform: translateX(-50%); } }
@@ -363,10 +374,7 @@
   .wf-btn-xl { height: 56px; padding: 0 18px 0 8px; }
   .wf-btn-ghost.wf-btn-xl { display: none; }
   .wf-dash { width: 92vw; top: 62vh; font-size: 5.5px; }
-  .wf-login { display: none; }
   .wf-nav-actions { gap: 8px; }
-  .wf-mode button { padding: 7px 10px; font-size: 12px; text-transform: capitalize; }
-  .wf-mode-for { display: none; }
   .wf-nav .wf-btn-sm { padding: 0 14px; }
   .wf-price-card { flex-direction: column; gap: 14px; padding: 18px; border-radius: 24px; }
   .wf-ag-bar { top: 76px; }

@@ -86,7 +86,7 @@ function CallScreen(p: { connectAt: number; endAt: number; clock: string; vis?: 
 function SmsBanner({ b, mins, at }: { b: number; mins: number; at: string }) {
   return (
     <div className="cs-banner cs-on" style={on(b)}>
-      <span className="cs-banner-app" />
+      <img className="cs-banner-app" src="/brand/imessage.png" alt="" />
       <div>
         <p className="cs-banner-top"><b>Bank of Antarctica</b><small>now</small></p>
         <p className="cs-banner-body">Hi Maria, we have your request. A specialist will call you back in about {mins} minutes, around {at}. You are #1 in line.</p>
@@ -247,11 +247,25 @@ function Returning() {
    ========================================================= */
 
 const S3_BEATS = [0, 0.12, 0.26, 0.42, 0.58, 0.72];
-const QUEUE: [string, string, string, number, string][] = [
-  ['Omar Haddad', 'Wire transfer stuck', 'HIGH', 78, 'high'],
-  ['Priya Nair', 'Update address', 'NORMAL', 41, 'norm'],
-  ['Luis Ortega', 'Statement question', 'LOW', 18, 'low'],
+const QUEUE: [who: string, why: string, score: number, tone: string][] = [
+  ['Omar H.', 'Wire transfer stuck', 78, 'high'],
+  ['Priya N.', 'Update address', 41, 'norm'],
+  ['Luis O.', 'Statement question', 18, 'low'],
 ];
+
+function QRow({ who, why, score, tone, rank, className = '', style }: {
+  who: string; why: string; score: number; tone: string; rank: ReactNode; className?: string; style?: CSSProperties;
+}) {
+  return (
+    <div className={`cs-qrow ${className}`} style={style}>
+      <span className="cs-qn">{rank}</span>
+      <div className="cs-qmain">
+        <p className="cs-qtop"><i className={`cs-qdot cs-tone-${tone}`} /><b>{why}</b><span>{who}</span><strong>{score}</strong></p>
+        <span className="cs-qbar"><i className={`cs-tone-${tone}`} style={{ '--s': score / 100 } as CSSProperties} /></span>
+      </div>
+    </div>
+  );
+}
 
 function RepView() {
   return (
@@ -265,41 +279,32 @@ function RepView() {
 
         <div className="cs-stage">
           <div className="cs-win" aria-hidden="true">
-            <div className="cs-toast cs-on" style={on(2, 2)}>
-              <span className="cs-toast-dot" /><b>New #1 · Maria Reyes</b>
-            </div>
-
             <div className="cs-queue">
-              <div className="cs-qrow cs-qrow-maria cs-on" style={on(2)}>
-                <span className="cs-qn">1</span>
-                <div><b>Maria Reyes</b><p>Replacement card</p></div>
-                <em className="cs-tone-high">HIGH</em><strong>82</strong>
+              <div className="cs-q-head">
+                <b>Callback queue</b>
+                <span className="cs-q-count"><span className="cs-on" style={on(0, 1)}>3 waiting</span><span className="cs-on" style={on(2)}>4 waiting</span></span>
               </div>
-              {QUEUE.map(([n, why, tag, score, tone], i) => (
-                <div className="cs-qrow" key={n}>
-                  <span className="cs-qn"><span className="cs-on" style={on(1, 1)}>{i + 1}</span><span className="cs-on" style={on(2)}>{i + 2}</span></span>
-                  <div><b>{n}</b><p>{why}</p></div>
-                  <em className={`cs-tone-${tone}`}>{tag}</em><strong>{score}</strong>
-                </div>
+              <QRow className="cs-qrow-maria cs-on" style={on(2)} who="Maria R." why="Replacement card" score={82} tone="high"
+                rank={<span className="cs-qr1">1</span>} />
+              {QUEUE.map(([who, why, score, tone], i) => (
+                <QRow key={who} who={who} why={why} score={score} tone={tone}
+                  rank={<><span className={`cs-on cs-qr${i + 1}`} style={on(0, 1)}>{i + 1}</span><span className={`cs-on cs-qr${i + 2}`} style={on(2)}>{i + 2}</span></>} />
               ))}
             </div>
 
-            <div className="cs-detail">
-              <div className="cs-detail-in cs-on" style={on(3)}>
-                <div className="cs-d-top">
-                  <b>Maria Reyes</b>
-                  <span className="cs-btn-call">
-                    <span className="cs-on" style={on(3, 4)}>Call back</span>
-                    <span className="cs-on" style={on(5)}>Calling…</span>
-                  </span>
-                </div>
-                <span className="cs-chip">Returning</span>
-                <p className="cs-d-head">Replacement card from last week’s fraud report hasn’t arrived.</p>
-                <p className="cs-d-lines">Wants: delivery update</p>
-                <div className="cs-d-hist">
-                  <p><i className="cs-dot-now" />Today · 0:52</p>
-                  <p><i />Last week · 2:48</p>
-                </div>
+            <div className="cs-detail cs-on" style={on(3)}>
+              <div className="cs-d-top">
+                <span className="cs-d-av">MR</span>
+                <div><b>Maria Reyes</b><small>Returning · 2nd call</small></div>
+              </div>
+              <p className="cs-d-head">Replacement card from last week’s fraud report hasn’t arrived.</p>
+              <p className="cs-d-lines">Wants: delivery update</p>
+              <div className="cs-d-foot">
+                <span className="cs-d-score">Score 82</span>
+                <span className="cs-btn-call">
+                  <span className="cs-on" style={on(3, 4)}>Call back</span>
+                  <span className="cs-on" style={on(5)}>Calling…</span>
+                </span>
               </div>
             </div>
           </div>

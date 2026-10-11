@@ -42,6 +42,13 @@ Status: 2026-10-11 22:10 UTC (Conrad's agent). `/wireframe` call story is now bu
 - Made with strip shows official marks from Simple Icons (CC0) for Supabase, Vercel, Claude, React, TypeScript, MCP (`stackMarks.ts`). Dial and Keewano are text until we get their logo files.
 - Open question for Conrad: cut the horizontal "Everything your agent already knows" cards (recommended; they repeat the story).
 
+## Pass 4 (2026-10-11 23:05 UTC)
+
+- Scenes 1 and 2 (desktop): phone centered as the hero, transcript card lower-left and side cards right, overlapping the phone edges with slight tilt (like the live site's hero). Mobile layout unchanged.
+- Scene 3: queue restyled like the live site's queue card (big rank numerals, dot + issue, short name, score bar, hairlines; no tier pills); brief is a separate white card with an initials avatar. Toast and history lines removed.
+- For humans / For agents moved out of the nav into a bottom-center glass dock that hides on scroll down and returns on scroll up.
+- Pricing section heading is now "Contact". iMessage icon on the SMS banner; Dial and Keewano marks (team-supplied images, `web/public/brand/`) as single-color masks in the Made with strip.
+
 ## Visual checks (earlier pass)
 
 - Built with `cd web && npm run build` on 2026-10-11: passes, one existing >500kB chunk warning.

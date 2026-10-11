@@ -18,6 +18,9 @@ const CARDS = [
   ['05', 'Team notes', 'Shared context for the next person. Nothing lives in one head.', 'wf-c5'],
 ];
 
+/** Logos supplied by the team, used as single-color masks so they match the strip. */
+const MASKS: Record<string, string> = { Dial: '/brand/dial-mask.png', Keewano: '/brand/keewano-mask.png' };
+
 const STACK = ['Dial', 'Supabase', 'Vercel', 'Keewano', 'Claude', 'React', 'TypeScript', 'MCP'];
 
 const QUEUE = [
@@ -40,6 +43,20 @@ export default function Wireframe() {
     window.history.replaceState(null, '', url);
   }, [mode]);
 
+  // Bottom toggle: visible near the top and whenever you scroll up; slides away while scrolling down.
+  const [dockHidden, setDockHidden] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (y < 240) setDockHidden(false);
+      else if (Math.abs(y - last) > 6) setDockHidden(y > last);
+      last = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   const pick = (m: Mode) => {
     setMode(m);
     window.scrollTo(0, 0);
@@ -55,19 +72,22 @@ export default function Wireframe() {
           <a href="#pricing">Pricing</a>
         </nav>
         <span className="wf-nav-actions">
-          <span className="wf-mode" role="tablist" aria-label="View this site for">
-            {(['humans', 'agents'] as const).map((m) => (
-              <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => pick(m)}>
-                <span className="wf-mode-for">For </span>{m}
-              </button>
-            ))}
-          </span>
           <a href="/login" className="wf-login">Log in</a>
           <a href="/login?signup" className="wf-btn wf-btn-ink wf-btn-sm">Get started</a>
         </span>
       </header>
 
       {mode === 'agents' ? <AgentView /> : <HumanPage />}
+
+      <div className="wf-mode-dock" data-hidden={dockHidden || undefined}>
+        <span className="wf-mode" role="tablist" aria-label="View this site for">
+          {(['humans', 'agents'] as const).map((m) => (
+            <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => pick(m)}>
+              For {m}
+            </button>
+          ))}
+        </span>
+      </div>
     </div>
   );
 }
@@ -233,7 +253,7 @@ function HumanPage() {
 
         {/* ---------- 6. PRICING: contact ---------- */}
         <section className="wf-price" id="pricing">
-          <h2 className="wf-display wf-h2">Pricing</h2>
+          <h2 className="wf-display wf-h2">Contact</h2>
           <p>Every support line is different. Tell us about yours.</p>
           <div className="wf-price-card">
             <a className="wf-price-mail" href="mailto:hello@tryrung.today">hello@tryrung.today</a>
@@ -272,6 +292,7 @@ function HumanPage() {
             {[...STACK, ...STACK].map((name, i) => (
               <span key={i} aria-hidden={i >= STACK.length || undefined}>
                 {MARKS[name] && <svg viewBox="0 0 24 24" aria-hidden="true"><path d={MARKS[name]} /></svg>}
+                {MASKS[name] && <i className="wf-mq-mask" style={{ '--m': `url(${MASKS[name]})` } as CSSProperties} />}
                 {name}
               </span>
             ))}
